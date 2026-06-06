@@ -21,12 +21,6 @@ interface MatchCardProps {
   showDate?: boolean
 }
 
-function getCountrySuffix(city: string): string {
-  const c = city.toLowerCase()
-  if (c.includes('vancouver') || c.includes('toronto')) return 'Canadá'
-  if (c.includes('cidade') || c.includes('mexico') || c.includes('guadalajara') || c.includes('monterrey') || c.includes('méxico')) return 'México'
-  return 'EUA'
-}
 
 export function MatchCard({ match, compact = false, showDate = false }: MatchCardProps) {
   const { data: standings } = useStandings()

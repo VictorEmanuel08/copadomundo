@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { X, Shield, Swords, ListChecks, Trophy } from 'lucide-react'
+import { X, Shield, Swords, ListChecks } from 'lucide-react'
 import { getDoc, doc } from 'firebase/firestore'
 import { db } from '@/core/firebase/config'
 import { KitPreview } from '@/features/custom-team/components/KitPreview'

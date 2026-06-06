@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Copy, Check, Users, Trophy, ListChecks, Info,
   Loader2, LogOut, Crown, Settings, Trash2, Lock,
-  Share2, Shield, Swords, AlertTriangle, Search, X as XIcon,
+  Share2, Shield, Swords, AlertTriangle, Search,
   Download, Radio,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -781,15 +781,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
     })
   }
 
-  const scopedMatches = useMemo(() => {
-    if (matchScope === 'team' && scopeTeamIds.length > 0) {
-      return allMatches.filter((m) =>
-        scopeTeamIds.includes(m.homeTeam.id) || scopeTeamIds.includes(m.awayTeam.id)
-      )
-    }
-    return allMatches
-  }, [allMatches, matchScope, scopeTeamIds])
-
   return (
     <div className="space-y-4">
       {/* ── Configurações ── */}
@@ -919,7 +910,7 @@ export default function LeaguePage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('palpites')
   const [selectedMember, setSelectedMember] = useState<LeagueMember | null>(null)
-  const { confirm, alert } = useDialog()
+  const { confirm } = useDialog()
 
   const { league, members, loading, notFound } = useLeagueDetails(leagueId)
   const predictions = useLeaguePredictions(leagueId)
@@ -1022,12 +1013,14 @@ export default function LeaguePage() {
 
   const scoring = league.config.scoring
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode; ownerOnly?: boolean }[] = [
-    { id: 'palpites', label: 'Palpites', icon: <ListChecks size={12} /> },
-    { id: 'classificacao', label: 'Ranking', icon: <Trophy size={12} /> },
-    { id: 'info', label: 'Info', icon: <Info size={12} /> },
-    { id: 'admin', label: 'Admin', icon: <Settings size={12} />, ownerOnly: true },
-  ].filter((t) => !t.ownerOnly || isOwner)
+  const tabs = (
+    [
+      { id: 'palpites' as Tab, label: 'Palpites', icon: <ListChecks size={12} /> },
+      { id: 'classificacao' as Tab, label: 'Ranking', icon: <Trophy size={12} /> },
+      { id: 'info' as Tab, label: 'Info', icon: <Info size={12} /> },
+      { id: 'admin' as Tab, label: 'Admin', icon: <Settings size={12} />, ownerOnly: true },
+    ] as { id: Tab; label: string; icon: React.ReactNode; ownerOnly?: boolean }[]
+  ).filter((t) => !t.ownerOnly || isOwner)
 
   return (
     <div className="space-y-5">

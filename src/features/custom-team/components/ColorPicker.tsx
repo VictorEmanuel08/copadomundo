@@ -30,7 +30,7 @@ interface ColorPickerProps {
   compact?: boolean
 }
 
-export function ColorPicker({ label, value, onChange, compact = false }: ColorPickerProps) {
+export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
   const nativeRef = useRef<HTMLInputElement>(null)
   const [hex, setHex] = useState(value.replace('#', '').toUpperCase())
   const [copied, setCopied] = useState(false)

@@ -9,7 +9,6 @@ import { CrestPreview } from '@/features/custom-team/components/CrestPreview'
 import { FormationDiagram } from '@/features/custom-team/pages/CustomTeamPage'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface CustomTeamData {
   name?: string

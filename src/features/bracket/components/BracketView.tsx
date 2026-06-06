@@ -7,7 +7,7 @@ import { generateBracket } from '@/features/simulator/world-cup-bracket/bracket'
 import { useStandings } from '@/features/standings/hooks/useStandings'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import type { Team, BracketMatch } from '@/core/api/types'
+import type { Team } from '@/core/api/types'
 
 function formatMatchDate(iso: string): string {
   const d = new Date(iso)
