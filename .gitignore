@@ -1,4 +1,21 @@
-# Logs
+# ── Dependências ──────────────────────────────────────────────────────
+node_modules
+functions/node_modules
+
+# ── Build outputs ─────────────────────────────────────────────────────
+dist
+dist-ssr
+functions/lib
+
+# ── Variáveis de ambiente (NUNCA commitar — contém chaves reais) ───────
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+!functions/.env.example
+
+# ── Logs ──────────────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,18 +24,22 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ── Arquivos locais e temporários ─────────────────────────────────────
 *.local
+.DS_Store
 
-# Editor directories and files
+# ── Editor ────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ── Documentos internos ───────────────────────────────────────────────
+PLAN.md
+
+# ── Claude Code (sessões internas) ────────────────────────────────────
+.claude/

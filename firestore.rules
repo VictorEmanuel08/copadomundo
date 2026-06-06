@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    function isMember(leagueId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/leagues/$(leagueId)/members/$(request.auth.uid));
+    }
+
+    function isLeagueOwner(leagueId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/leagues/$(leagueId)).data.ownerId == request.auth.uid;
+    }
+
+    // ── Users ──────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+
+      match /favorites/{teamId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /leagues/{leagueId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /simulations/{simId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ── Invite Codes ──────────────────────────────────────────
+    match /invites/{inviteCode} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if false;
+      // Só o dono da liga pode excluir o convite (ao excluir a liga)
+      allow delete: if isAuth() && isLeagueOwner(resource.data.leagueId);
+    }
+
+    // ── Public Pool Predictions ───────────────────────────────
+    // Palpites do Bolão Geral (público, visível a todos)
+    match /publicPredictions/{predId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+    }
+
+    // ── Leagues ────────────────────────────────────────────────
+    match /leagues/{leagueId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isLeagueOwner(leagueId);
+
+      match /members/{memberId} {
+        allow read: if isMember(leagueId) || isLeagueOwner(leagueId);
+        allow create, update: if isAuth() && request.auth.uid == memberId;
+        // Pode sair (delete próprio) ou owner pode remover qualquer membro
+        allow delete: if isAuth() && (request.auth.uid == memberId || isLeagueOwner(leagueId));
+      }
+
+      match /champion_predictions/{userId} {
+        allow read: if isMember(leagueId) || isLeagueOwner(leagueId);
+        allow create, update: if isAuth() && request.auth.uid == userId;
+        allow delete: if isAuth() && (request.auth.uid == userId || isLeagueOwner(leagueId));
+      }
+
+      match /predictions/{predId} {
+        allow read: if isMember(leagueId) || isLeagueOwner(leagueId);
+        allow create: if isMember(leagueId) && request.resource.data.userId == request.auth.uid;
+        allow update: if isMember(leagueId) && resource.data.userId == request.auth.uid;
+        // Owner pode deletar qualquer palpite (necessário para excluir a liga)
+        allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isLeagueOwner(leagueId));
+      }
+    }
+
+    // ── Football data cache (written by Cloud Function only) ──
+    match /cache/{document} {
+      allow read: if true;   // público — qualquer usuário lê
+      allow write: if false; // escrita apenas via Cloud Function (Admin SDK)
+    }
+
+    // ── FCM tokens (push notifications) ──────────────────────
+    match /fcmTokens/{token} {
+      allow read: if false;  // somente Cloud Function lê
+      allow create, update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // ── Custom Teams ───────────────────────────────────────────
+    match /customTeams/{teamId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.ownerId);
+    }
+  }
+}
