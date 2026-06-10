@@ -8,7 +8,6 @@ const db = getFirestore()
 
 const BASE = 'https://api.football-data.org/v4'
 
-// ── TEAM_MAP: TLA → { iso2 code, pt name, shortName } ───────────────────
 const TEAM_MAP: Record<string, { code: string; name: string; shortName: string }> = {
   MEX: { code: 'mx',     name: 'México',              shortName: 'MEX' },
   RSA: { code: 'za',     name: 'África do Sul',       shortName: 'AFS' },
@@ -60,7 +59,6 @@ const TEAM_MAP: Record<string, { code: string; name: string; shortName: string }
   PAN: { code: 'pa',     name: 'Panamá',              shortName: 'PAN' },
 }
 
-// ── Raw API types ────────────────────────────────────────────────────────
 interface ApiTeam {
   id: number; name: string; shortName: string; tla: string; crest: string
 }
@@ -84,7 +82,6 @@ interface ApiStandingSection {
   type: string; group: string; table: ApiStandingRow[]
 }
 
-// ── Transformation helpers ───────────────────────────────────────────────
 function mapStatus(s: string) {
   if (s === 'IN_PLAY' || s === 'PAUSED') return 'LIVE'
   if (s === 'FINISHED') return 'FINISHED'
@@ -110,7 +107,9 @@ function mapTeam(raw: ApiTeam, group?: string | null) {
   const tla = raw.tla?.toUpperCase() ?? ''
   const mapped = TEAM_MAP[tla]
   return {
-    id:        String(raw.id),
+    // Use lowercase TLA as ID when known (matches mock data IDs like "bra", "mex").
+    // Falls back to numeric string only for unmapped teams.
+    id:        mapped ? tla.toLowerCase() : String(raw.id),
     name:      mapped?.name      ?? raw.name,
     shortName: mapped?.shortName ?? raw.tla,
     code:      mapped?.code      ?? 'un',
@@ -154,7 +153,6 @@ function transformStanding(row: ApiStandingRow, group: string | null) {
   }
 }
 
-// ── API fetch ────────────────────────────────────────────────────────────
 async function apiFetch<T>(path: string, token: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'X-Auth-Token': token },
@@ -164,7 +162,6 @@ async function apiFetch<T>(path: string, token: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
-// ── Cloud Function: sync all football data every 1 minute ────────────────
 export const syncFootballData = onSchedule(
   {
     schedule: '* * * * *',   // every minute
@@ -182,7 +179,6 @@ export const syncFootballData = onSchedule(
     const now = new Date().toISOString()
 
     try {
-      // 1. Matches (group stage + all)
       const matchData = await apiFetch<{ matches: ApiMatch[] }>(
         '/competitions/WC/matches?season=2026', token,
       )

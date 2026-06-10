@@ -1,4 +1,4 @@
-# 🏆 Copa do Mundo 2026 — App
+# 🏆 Copa do Mundo - 2026
 
 Aplicativo web completo para acompanhar a Copa do Mundo FIFA 2026. Combine classificações em tempo real, simulador de chaveamento, bolão personalizado com amigos e sua própria seleção virtual.
 
@@ -22,9 +22,9 @@ Aplicativo web completo para acompanhar a Copa do Mundo FIFA 2026. Combine class
 
 | Camada | Tecnologia |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| UI | Tailwind CSS + shadcn/ui |
-| Roteamento | React Router v6 |
+| Frontend | React 19 + TypeScript + Vite |
+| UI | Tailwind CSS 4 + shadcn/ui + Radix UI |
+| Roteamento | React Router v7 |
 | Backend / Auth | Firebase (Firestore + Authentication) |
 | API de futebol | [football-data.org](https://www.football-data.org) (plano gratuito) |
 | Cloud Function | Firebase Functions v2 (Node.js 22) |
@@ -305,6 +305,12 @@ Cada requisição HTTP ao servidor da football-data.org conta como 1 call. O lim
 Para evitar erros de CORS ao chamar a API em desenvolvimento, o Vite redireciona `/fd-api` para `https://api.football-data.org`. Isso está configurado em `vite.config.ts` e funciona automaticamente com `npm run dev`. Em produção (Firebase Hosting), as chamadas vêm apenas da Cloud Function — o browser nunca acessa a API diretamente.
 
 ---
+
+---
+
+## 🌐 Deploy
+
+**Produção:** [copadomundo-2026.vercel.app](https://copadomundo-2026.vercel.app)
 
 ---
 

@@ -1,13 +1,10 @@
-# ── Dependências ──────────────────────────────────────────────────────
 node_modules
 functions/node_modules
 
-# ── Build outputs ─────────────────────────────────────────────────────
 dist
 dist-ssr
 functions/lib
 
-# ── Variáveis de ambiente (NUNCA commitar — contém chaves reais) ───────
 .env
 .env.*
 !.env.example
@@ -15,7 +12,6 @@ functions/.env
 functions/.env.*
 !functions/.env.example
 
-# ── Logs ──────────────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -24,11 +20,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# ── Arquivos locais e temporários ─────────────────────────────────────
 *.local
 .DS_Store
+Thumbs.db
 
-# ── Editor ────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -38,8 +33,10 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# ── Documentos internos ───────────────────────────────────────────────
-PLAN.md
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 
-# ── Claude Code (sessões internas) ────────────────────────────────────
+PLAN.md
 .claude/

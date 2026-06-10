@@ -5,6 +5,7 @@ import { TEAMS } from '@/core/api/mock/teams'
 import { ALL_GROUPS, type GroupLetter } from '@/features/simulator/world-cup-bracket/types'
 import { generateBracket } from '@/features/simulator/world-cup-bracket/bracket'
 import { useStandings } from '@/features/standings/hooks/useStandings'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import type { Team } from '@/core/api/types'
@@ -250,11 +251,9 @@ export function BracketView() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [activeSection, setActiveSection] = useState<'left' | 'center' | 'right'>('center')
 
-  // Buscar classificação real e matches do bracket via cache Firestore
   const { data: standings, isLoading: loadingStandings } = useStandings()
   const { data: apiMatches, isLoading: loadingBracket } = useBracket()
 
-  // Centraliza o scroll no painel de Finais por padrão
   useEffect(() => {
     const timer = setTimeout(() => {
       const el = scrollContainerRef.current
@@ -280,11 +279,9 @@ export function BracketView() {
     el.scrollTo({ left: scrollLeft, behavior: 'smooth' })
   }
 
-  // ── Mapeamento Dinâmico de Grupos e Placeholders ────────────────────
   const mergedBracket = useMemo(() => {
     if (!standings) return null
 
-    // 1. Verificar se a fase de grupos já começou/finalizou
     const groupStatus: Record<GroupLetter, { first: string | null; second: string | null; third: string | null }> = {} as any
     const finishedGroups: GroupLetter[] = []
 
@@ -292,8 +289,7 @@ export function BracketView() {
       const rows = standings.filter(s => s.group === g)
       const isFinished = rows.length > 0 && rows.every(s => s.played === 3)
       const isStarted = rows.some(s => s.played > 0)
-      
-      // Se começou ou terminou, pegamos os times em sua ordem de pontos
+
       if (isStarted || isFinished) {
         const sorted = [...rows].sort((a, b) => {
           if (b.points !== a.points) return b.points - a.points
@@ -315,7 +311,6 @@ export function BracketView() {
       }
     }
 
-    // Calcular os 8 melhores terceiros colocados se houver grupos finalizados
     let bestThirdsIds: string[] = []
     if (finishedGroups.length === 12) {
       const thirdsList = ALL_GROUPS.map(g => {
@@ -325,7 +320,7 @@ export function BracketView() {
           if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
           return b.goalsFor - a.goalsFor
         })
-        return sorted[2] // 3rd placed row
+        return sorted[2]
       }).filter(Boolean)
 
       const sortedThirds = [...thirdsList].sort((a, b) => {
@@ -336,15 +331,12 @@ export function BracketView() {
       bestThirdsIds = sortedThirds.slice(0, 8).map(r => r.team.id)
     }
 
-    // 2. Gerar bracket estrutural com placeholders da FIFA 2026
     const baseBracket = generateBracket({
       groups: groupStatus,
       thirds: bestThirdsIds,
       bracket: {}
     })
 
-    // 3. Mesclar placeholders estruturais com dados dinâmicos da API
-    // Mapeamento de rounds e slots para a lista de matches da API (apiMatches)
     const findApiMatch = (roundName: string, slotIdx: number) => {
       if (!apiMatches || apiMatches.length === 0) return null
       
@@ -366,8 +358,6 @@ export function BracketView() {
 
     const mergeMatch = (baseMatch: any, roundName: string, slotIdx: number): MergedMatch => {
       const live = findApiMatch(roundName, slotIdx)
-
-      // Resolve real teams and metadata
       const homeTeam = live?.homeTeam ?? (baseMatch.home ? TEAMS.find(t => t.id === baseMatch.home) ?? null : null)
       const awayTeam = live?.awayTeam ?? (baseMatch.away ? TEAMS.find(t => t.id === baseMatch.away) ?? null : null)
 
@@ -392,7 +382,6 @@ export function BracketView() {
     const third = mergeMatch(baseBracket.third, 'THIRD', 0)
     const final = mergeMatch(baseBracket.final, 'FINAL', 0)
 
-    // Achar o Campeão Real
     let champion: Team | null = null
     const finalLive = findApiMatch('FINAL', 0)
     if (finalLive && finalLive.status === 'FINISHED' && finalLive.score.home !== null && finalLive.score.away !== null) {
@@ -460,16 +449,14 @@ export function BracketView() {
         </div>
       </div>
 
-      {/* Bracket horizontal com rolagem */}
-      <div 
-        ref={scrollContainerRef}
-        className="overflow-x-auto pb-6 scrollbar-thin select-none"
+      <ScrollArea
+        viewportRef={scrollContainerRef}
+        className="w-full pb-2 select-none"
       >
+        <ScrollBar orientation="horizontal" />
         <div className="flex flex-col min-w-max items-center">
           
-          {/* Cabeçalho de Rodadas (Alinhado Horizontalmente) */}
           <div className="flex items-center justify-center gap-0 px-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 border-b border-border/30 pb-2.5 mb-5 w-full select-none">
-            {/* Lado Esquerdo Headers */}
             <div className="flex shrink-0">
               <div className="text-center w-36 sm:w-40">16-avos de final</div>
               <div className="w-6" />
@@ -482,14 +469,12 @@ export function BracketView() {
             <div className="text-center w-36 sm:w-40 font-extrabold text-primary">Semifinal</div>
             <div className="w-6" />
             
-            {/* Centro Header */}
             <div className="text-center w-[192px] sm:w-[208px] font-black text-foreground/80">Final e 3º Lugar</div>
             
             <div className="w-6" />
             <div className="text-center w-36 sm:w-40 font-extrabold text-primary">Semifinal</div>
             <div className="w-6" />
             
-            {/* Lado Direito Headers */}
             <div className="flex shrink-0 flex-row-reverse">
               <div className="text-center w-36 sm:w-40">16-avos de final</div>
               <div className="w-6" />
@@ -499,12 +484,8 @@ export function BracketView() {
             </div>
           </div>
 
-          {/* Cards do Chaveamento */}
           <div className="flex items-center justify-center gap-0 px-2 py-2">
-            
-            {/* ─── LADO ESQUERDO ─── */}
             <div className="flex items-center">
-              {/* Árvore de Quartas 1 e 2 */}
               <div className="flex flex-col gap-8">
                 <QFTree
                   top1={r32[1]}
@@ -538,7 +519,6 @@ export function BracketView() {
                 <MatchNode {...sf1} />
               </div>
 
-              {/* Linha SF1 -> Final */}
               <div className="flex items-center h-[640px] shrink-0">
                 <svg width={24} height={640} className="shrink-0 pointer-events-none">
                   <path d="M 0 320 L 24 320" className={cn("stroke-2 transition-all", sf1_Won ? "stroke-success" : "stroke-border/30")} fill="none" />
@@ -546,15 +526,11 @@ export function BracketView() {
               </div>
             </div>
 
-            {/* ─── CENTRO (FINAL, 3º LUGAR, CAMPEÃO) ─── */}
             <div className="flex flex-col items-center justify-center gap-12 h-[640px] px-6 shrink-0 relative">
-              
-              {/* Grande Final */}
               <div className="flex flex-col items-center gap-2">
                 <MatchNode {...final} label="Final" />
               </div>
 
-              {/* Painel do Campeão Sóbrio */}
               {champion ? (
                 <div className="flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-amber-500 bg-amber-500/[0.03] max-w-[160px] shadow-sm animate-scale-in text-center">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 text-white">
@@ -575,32 +551,26 @@ export function BracketView() {
                 </div>
               )}
 
-              {/* Disputa do 3º Lugar */}
               <div className="flex flex-col items-center gap-2">
                 <MatchNode {...third} label="3º Lugar" />
               </div>
             </div>
 
-            {/* ─── LADO DIREITO ─── */}
             <div className="flex items-center">
-              {/* Linha Final <- SF2 */}
               <div className="flex items-center h-[640px] shrink-0">
                 <svg width={24} height={640} className="shrink-0 pointer-events-none">
                   <path d="M 24 320 L 0 320" className={cn("stroke-2 transition-all", sf2_Won ? "stroke-success" : "stroke-border/30")} fill="none" />
                 </svg>
               </div>
 
-              {/* Semifinal Direita */}
               <div className="flex items-center h-[640px] shrink-0">
                 <MatchNode {...sf2} />
               </div>
 
-              {/* Conector SF2 <- QF */}
               <div className="flex items-center h-[640px] shrink-0">
                 <MatchConnector height={640} topWon={qf3_Won} bottomWon={qf4_Won} isLeft={false} />
               </div>
 
-              {/* Árvore de Quartas 3 e 4 */}
               <div className="flex flex-col gap-8">
                 <QFTree
                   top1={r32[3]}
@@ -627,7 +597,7 @@ export function BracketView() {
             
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   )
 }

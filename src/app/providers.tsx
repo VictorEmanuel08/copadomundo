@@ -28,24 +28,30 @@ export function Providers({ children }: { children: ReactNode }) {
         </DialogProvider>
       </QueryClientProvider>
       <Toaster
-        position="top-right"
-        richColors
-        closeButton
+        position="bottom-center"
+        theme="dark"
         gap={8}
+        closeButton
         toastOptions={{
-          duration: 4000,
+          duration: 3500,
           style: {
-            fontFamily: 'inherit',
-            borderRadius: '14px',
+            background: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
+            color: 'hsl(var(--foreground))',
+            borderRadius: '16px',
             fontSize: '13px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            backdropFilter: 'blur(12px)',
+            padding: '14px 16px',
+            boxShadow: '0 20px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(16px)',
+            fontFamily: 'inherit',
           },
           classNames: {
-            toast: 'font-sans',
             title: 'font-bold text-[13px]',
-            description: 'text-[11px] opacity-80',
+            description: 'text-[11px] opacity-75 mt-0.5',
+            success: '!border-emerald-500/30',
+            error: '!border-red-500/30',
+            warning: '!border-amber-500/30',
+            info: '!border-blue-500/30',
           },
         }}
       />

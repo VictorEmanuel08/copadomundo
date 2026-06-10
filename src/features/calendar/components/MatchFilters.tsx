@@ -1,5 +1,5 @@
-import { GROUPS } from '@/core/api/mock/standings'
 import { cn } from '@/lib/utils'
+import { TeamMultiSelect } from './TeamMultiSelect'
 
 const PHASES = [
   { value: 'GROUP_STAGE', label: 'Grupos' },
@@ -12,10 +12,10 @@ const PHASES = [
 ]
 
 interface MatchFiltersProps {
-  selectedGroup: string | null
-  onGroupChange: (group: string | null) => void
   selectedPhase: string | null
   onPhaseChange: (phase: string | null) => void
+  selectedTeams: string[]
+  onTeamsChange: (ids: string[]) => void
 }
 
 function FilterChip({
@@ -43,13 +43,14 @@ function FilterChip({
 }
 
 export function MatchFilters({
-  selectedGroup,
-  onGroupChange,
   selectedPhase,
   onPhaseChange,
+  selectedTeams,
+  onTeamsChange,
 }: MatchFiltersProps) {
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      {/* Fase */}
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fase</p>
         <div className="flex flex-wrap gap-1.5">
@@ -68,22 +69,10 @@ export function MatchFilters({
         </div>
       </div>
 
+      {/* Seleções */}
       <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Grupo</p>
-        <div className="flex flex-wrap gap-1.5">
-          <FilterChip active={selectedGroup === null} onClick={() => onGroupChange(null)}>
-            Todos
-          </FilterChip>
-          {GROUPS.map((g) => (
-            <FilterChip
-              key={g}
-              active={selectedGroup === g}
-              onClick={() => onGroupChange(g)}
-            >
-              {g}
-            </FilterChip>
-          ))}
-        </div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seleção</p>
+        <TeamMultiSelect selected={selectedTeams} onChange={onTeamsChange} />
       </div>
     </div>
   )
