@@ -26,13 +26,6 @@ import {
 } from '../hooks/useLeague'
 import type { Match } from '@/core/api/types'
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    weekday: 'short', day: '2-digit', month: 'short',
-    hour: '2-digit', minute: '2-digit',
-    timeZone: 'America/Sao_Paulo',
-  }).replace(',', ' ·')
-}
 
 function isMatchLocked(match: Match): boolean {
   if (match.status !== 'SCHEDULED') return true
