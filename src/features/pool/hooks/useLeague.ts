@@ -8,8 +8,6 @@ import { db } from '@/core/firebase/config'
 import { useAuthStore } from '@/features/auth/store/authStore'
 import { nanoid } from 'nanoid'
 
-// ── Types ───────────────────────────────────────────────────────────────
-
 export interface LeagueScoring {
   winner: number
   draw: number
@@ -93,8 +91,6 @@ export interface MemberCustomTeam {
   }
 }
 
-// ── Score calculation ────────────────────────────────────────────────────
-
 export function calculateMatchPoints(
   prediction: { homeScore: number; awayScore: number },
   result: { home: number; away: number },
@@ -109,7 +105,7 @@ export function calculateMatchPoints(
   return predWinner === 0 ? scoring.draw : scoring.winner
 }
 
-// ── Hook: create / join ──────────────────────────────────────────────────
+
 
 export function useLeague() {
   const { user } = useAuthStore()
@@ -175,8 +171,6 @@ export function useLeague() {
 
   return { createLeague, joinLeague, loading, error }
 }
-
-// ── Hook: edit league (admin only) ───────────────────────────────────────
 
 export function useLeagueAdmin(leagueId: string | undefined) {
   const [saving, setSaving] = useState(false)
@@ -245,8 +239,6 @@ export function useLeagueAdmin(leagueId: string | undefined) {
   return { editLeague, deleteLeagueWithCleanup, saving }
 }
 
-// ── Hook: my leagues ─────────────────────────────────────────────────────
-
 export interface MyLeagueEntry {
   leagueId: string; name: string; inviteCode: string
   role: 'owner' | 'member'; joinedAt: Date | null
@@ -274,8 +266,6 @@ export function useMyLeagues() {
 
   return { leagues, loading }
 }
-
-// ── Hook: league details ─────────────────────────────────────────────────
 
 export function useLeagueDetails(leagueId: string | undefined) {
   const [league, setLeague] = useState<League | null>(null)
@@ -316,8 +306,6 @@ export function useLeagueDetails(leagueId: string | undefined) {
   return { league, members, loading, notFound }
 }
 
-// ── Hook: predictions ────────────────────────────────────────────────────
-
 export function useLeaguePredictions(leagueId: string | undefined) {
   const [predictions, setPredictions] = useState<Prediction[]>([])
   useEffect(() => {
@@ -335,8 +323,6 @@ export function useLeaguePredictions(leagueId: string | undefined) {
   }, [leagueId])
   return predictions
 }
-
-// ── Hook: members' custom teams ──────────────────────────────────────────
 
 export function useMembersCustomTeams(memberIds: string[]) {
   const [teams, setTeams] = useState<Record<string, MemberCustomTeam>>({})
@@ -361,8 +347,6 @@ export function useMembersCustomTeams(memberIds: string[]) {
   return teams
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
-
 export async function savePrediction(
   leagueId: string, userId: string, matchId: string,
   homeScore: number, awayScore: number, comment?: string,
@@ -374,7 +358,11 @@ export async function savePrediction(
   })
 }
 
-// ── Champion prediction ──────────────────────────────────────────────────
+export async function deletePrediction(
+  leagueId: string, userId: string, matchId: string,
+): Promise<void> {
+  await deleteDoc(doc(db, 'leagues', leagueId, 'predictions', `${userId}_${matchId}`))
+}
 
 export function useChampionPrediction(leagueId: string | undefined) {
   const [champions, setChampions] = useState<ChampionPrediction[]>([])
@@ -401,8 +389,6 @@ export async function saveChampionPrediction(
     userId, teamId, submittedAt: serverTimestamp(),
   })
 }
-
-// ── Streak calculation (consecutive correct predictions, latest first) ───
 
 export function computeStreak(
   userId: string,

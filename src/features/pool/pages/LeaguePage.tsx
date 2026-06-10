@@ -20,13 +20,11 @@ import { toast } from 'sonner'
 import {
   useLeagueDetails, useLeaguePredictions, useLeagueAdmin,
   useMembersCustomTeams, useChampionPrediction,
-  savePrediction, saveChampionPrediction, leaveLeague,
+  savePrediction, deletePrediction, saveChampionPrediction, leaveLeague,
   calculateMatchPoints, computeStreak,
   type LeagueMember, type Prediction, type MatchScope,
 } from '../hooks/useLeague'
 import type { Match } from '@/core/api/types'
-
-// ── Helpers ────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', {
@@ -38,7 +36,11 @@ function formatDate(iso: string) {
 
 function isMatchLocked(match: Match): boolean {
   if (match.status !== 'SCHEDULED') return true
-  return new Date(match.date).getTime() - Date.now() < 30 * 60 * 1000
+  return new Date(match.date).getTime() - Date.now() < 10 * 60 * 1000
+}
+
+function minutesToMatch(match: Match): number {
+  return Math.floor((new Date(match.date).getTime() - Date.now()) / 60_000)
 }
 
 function InviteCodeBadge({ code }: { code: string }) {
@@ -55,8 +57,6 @@ function InviteCodeBadge({ code }: { code: string }) {
   )
 }
 
-// ── Phase label helper ──────────────────────────────────────────────────
-
 const PHASE_LABELS: Record<string, string> = {
   GROUP_STAGE:    'Fase de Grupos',
   ROUND_OF_32:    '1ª Rodada',
@@ -67,8 +67,6 @@ const PHASE_LABELS: Record<string, string> = {
   FINAL:          'Grande Final 🏆',
 }
 
-// ── Prediction row ─────────────────────────────────────────────────────
-
 function PredictionRow({ match, existing, leagueId, userId, scoring }: {
   match: Match
   existing: Prediction | undefined
@@ -78,19 +76,27 @@ function PredictionRow({ match, existing, leagueId, userId, scoring }: {
 }) {
   const [home, setHome] = useState(existing?.homeScore ?? 0)
   const [away, setAway] = useState(existing?.awayScore ?? 0)
-  const [comment, setComment] = useState(existing?.comment ?? '')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showComment, setShowComment] = useState(false)
+  const [comment, setComment] = useState(existing?.comment ?? '')
 
   useEffect(() => {
     if (existing) {
-      setHome(existing.homeScore); setAway(existing.awayScore)
+      setHome(existing.homeScore)
+      setAway(existing.awayScore)
       setComment(existing.comment ?? '')
+    } else {
+      setHome(0); setAway(0); setComment('')
     }
   }, [existing?.id])
 
   const locked = isMatchLocked(match)
   const isDone = match.status === 'FINISHED'
+  const isLive = match.status === 'LIVE'
   const hasResult = match.score.home !== null && match.score.away !== null
+  const minsLeft = !locked && !isDone && !isLive ? minutesToMatch(match) : null
+  const closingSoon = minsLeft !== null && minsLeft <= 30
 
   let pointsEarned: number | null = null
   if (isDone && hasResult && existing) {
@@ -104,156 +110,177 @@ function PredictionRow({ match, existing, leagueId, userId, scoring }: {
     setSaving(true)
     try {
       await savePrediction(leagueId, userId, match.id, home, away, comment)
-      toast.success(existing ? 'Palpite atualizado!' : 'Palpite enviado! 🎯', {
-        description: `${match.homeTeam.shortName} ${home} × ${away} ${match.awayTeam.shortName}`,
+      toast.success(existing ? 'Palpite atualizado! ✏️' : 'Palpite enviado! 🎯', {
+        description: `${match.homeTeam.shortName} ${home}×${away} ${match.awayTeam.shortName}`,
       })
     } catch (e: any) {
-      console.error(e)
-      toast.error('Erro ao salvar palpite', {
-        description: 'Verifique sua conexão e tente novamente.',
-      })
+      toast.error('Erro ao salvar', { description: 'Verifique sua conexão.' })
     } finally { setSaving(false) }
+  }
+
+  async function handleReset() {
+    setDeleting(true)
+    try {
+      await deletePrediction(leagueId, userId, match.id)
+      toast.success('Palpite removido', { description: 'Você pode registrar um novo palpite.' })
+    } catch {
+      toast.error('Erro ao remover palpite')
+    } finally { setDeleting(false) }
   }
 
   function handleShare() {
     const scoreStr = existing ? `${existing.homeScore}×${existing.awayScore}` : `${home}×${away}`
     const text = `Meu palpite: ${match.homeTeam.shortName} ${scoreStr} ${match.awayTeam.shortName} — Copa 2026 ⚽`
-    if (navigator.share) {
-      navigator.share({ text })
-    } else {
+    if (navigator.share) navigator.share({ text })
+    else {
       navigator.clipboard.writeText(text)
-      toast.success('Palpite copiado!', { description: text, duration: 3000 })
+      toast.success('Palpite copiado!', { duration: 2000 })
     }
   }
 
   const isKnockout = match.phase !== 'GROUP_STAGE'
+  const dateShort = new Date(match.date).toLocaleDateString('pt-BR', {
+    day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo',
+  })
+  const timeShort = new Date(match.date).toLocaleTimeString('pt-BR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+  })
 
   return (
     <div className={cn(
-      'rounded-2xl border overflow-hidden transition-all',
+      'rounded-2xl border overflow-hidden transition-all flex flex-col',
       isDone ? 'border-border/40 bg-muted/10' : 'border-border bg-card',
-      locked && !isDone && 'opacity-75',
+      isLive && 'border-red-500/40 bg-red-500/3',
+      locked && !isDone && !isLive && 'opacity-80',
     )}>
-      {/* Header */}
-      {isKnockout && (
-        <div className="px-3 py-1 bg-primary/8 border-b border-primary/20">
-          <span className="text-[9px] font-black uppercase tracking-widest text-primary">
-            {PHASE_LABELS[match.phase] ?? match.phase}
+      <div className="flex items-center justify-between px-2.5 py-1 bg-muted/30 border-b border-border/20">
+        <div className="flex items-center gap-1.5">
+          {isLive && (
+            <span className="flex items-center gap-1 text-[9px] font-black text-red-500">
+              <Radio size={8} className="animate-pulse" /> AO VIVO
+            </span>
+          )}
+          {!isLive && (
+            <span className="text-[9px] text-muted-foreground font-medium">
+              {dateShort} · {timeShort}
+            </span>
+          )}
+          {isKnockout && (
+            <span className="text-[9px] font-black text-primary/80 uppercase tracking-wide">
+              · {PHASE_LABELS[match.phase]}
+            </span>
+          )}
+        </div>
+        {isDone && hasResult && existing !== undefined && pointsEarned !== null && (
+          <span className={cn(
+            'text-[9px] font-black px-1.5 py-0.5 rounded-full',
+            pointsEarned > 0 ? 'text-emerald-500 bg-emerald-500/10' : 'text-muted-foreground/60 bg-muted/30',
+          )}>
+            {pointsEarned === scoring.exactScore ? '🎯' : pointsEarned > 0 ? '✅' : '❌'} +{pointsEarned}pts
           </span>
-        </div>
-      )}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/30 bg-muted/20">
-        <span className="text-[10px] font-semibold text-muted-foreground">{formatDate(match.date)}</span>
-        <div className="flex items-center gap-2">
-          {match.status === 'LIVE' && (
-            <span className="flex items-center gap-1 text-[9px] font-black text-red-500 animate-pulse">
-              <Radio size={9} /> AO VIVO
-            </span>
-          )}
-          {locked && !isDone && match.status !== 'LIVE' && (
-            <span className="flex items-center gap-1 text-[9px] font-bold text-amber-500">
-              <Lock size={9} /> Encerrado
-            </span>
-          )}
-          {isDone && hasResult && existing !== undefined && (
-            <span className={cn(
-              'text-[10px] font-black px-2 py-0.5 rounded-full',
-              pointsEarned! > 0 ? 'text-success bg-success/10' : 'text-muted-foreground/60 bg-muted/40',
-            )}>
-              {pointsEarned === scoring.exactScore ? '🎯' : pointsEarned! > 0 ? '✅' : '❌'} +{pointsEarned} pts
-            </span>
-          )}
-        </div>
+        )}
+        {closingSoon && (
+          <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-400">
+            ⚠ Fecha em {minsLeft}min
+          </span>
+        )}
+        {locked && !isDone && !isLive && (
+          <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-500/80">
+            <Lock size={8} /> Palpites fechados
+          </span>
+        )}
       </div>
 
-      <div className="p-3 space-y-3">
-        {/* Teams + ScoreInputs */}
-        <div className="flex items-center gap-2">
-          {/* Home */}
-          <div className="flex flex-1 items-center gap-1.5 min-w-0 justify-end">
-            <span className="text-sm font-bold truncate">{match.homeTeam.shortName}</span>
-            <TeamFlag code={match.homeTeam.code} name={match.homeTeam.name} size={20} />
+      <div className="p-2.5 space-y-2 flex-1 flex flex-col">
+        <div className="flex items-center gap-1.5">
+          <div className="flex flex-1 items-center gap-1 min-w-0 justify-end">
+            <span className="text-xs font-black truncate leading-none">{match.homeTeam.shortName}</span>
+            <TeamFlag code={match.homeTeam.code} name={match.homeTeam.name} size={18} />
           </div>
 
-          {/* Score area */}
-          <div className="shrink-0 flex items-center gap-1.5">
-            {(isDone && hasResult) || (match.status === 'LIVE' && hasResult) ? (
+          <div className="shrink-0 flex items-center gap-1">
+            {(isDone && hasResult) || (isLive && hasResult) ? (
               <div className={cn(
-                'flex items-center gap-2 px-3 py-1 rounded-xl border',
-                match.status === 'LIVE'
-                  ? 'bg-red-500/10 border-red-500/40 text-red-400'
-                  : 'bg-muted/40 border-border/40',
+                'flex items-center gap-1.5 px-2 py-1 rounded-lg border text-sm font-black tabular-nums',
+                isLive ? 'bg-red-500/10 border-red-500/40 text-red-400' : 'bg-muted/40 border-border/30',
               )}>
-                <span className="text-base font-black tabular-nums">{match.score.home}</span>
-                <span className="text-muted-foreground/50 font-bold">—</span>
-                <span className="text-base font-black tabular-nums">{match.score.away}</span>
+                {match.score.home}<span className="text-muted-foreground/40 font-normal">–</span>{match.score.away}
               </div>
             ) : (
               <>
                 <ScoreInput value={home} onChange={setHome} disabled={locked} size="sm" />
-                <span className="text-muted-foreground/40 font-bold text-xs mx-0.5">×</span>
+                <span className="text-muted-foreground/30 text-xs">×</span>
                 <ScoreInput value={away} onChange={setAway} disabled={locked} size="sm" />
               </>
             )}
           </div>
 
-          {/* Away */}
-          <div className="flex flex-1 items-center gap-1.5 min-w-0">
-            <TeamFlag code={match.awayTeam.code} name={match.awayTeam.name} size={20} />
-            <span className="text-sm font-bold truncate">{match.awayTeam.shortName}</span>
+          <div className="flex flex-1 items-center gap-1 min-w-0">
+            <TeamFlag code={match.awayTeam.code} name={match.awayTeam.name} size={18} />
+            <span className="text-xs font-black truncate leading-none">{match.awayTeam.shortName}</span>
           </div>
         </div>
 
-        {/* Comment */}
-        {!isDone && !locked && (
+        {locked && !isDone && existing && (
+          <p className="text-center text-[10px] text-muted-foreground/70">
+            Seu palpite: <strong className="text-foreground">{existing.homeScore}×{existing.awayScore}</strong>
+          </p>
+        )}
+
+        {!isDone && !locked && showComment && (
           <input
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Comentário opcional... (ex: Brasil vai golear 🔥)"
+            placeholder="Comentário... (ex: Brasil vai golear 🔥)"
             maxLength={100}
-            className="w-full rounded-xl border border-border/40 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 focus:text-foreground transition-colors"
+            className="w-full rounded-lg border border-border/40 bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-primary/30 focus:text-foreground"
           />
         )}
         {isDone && existing?.comment && (
-          <p className="text-[10px] text-muted-foreground/60 italic truncate">💬 "{existing.comment}"</p>
+          <p className="text-[9px] text-muted-foreground/50 italic truncate">💬 "{existing.comment}"</p>
         )}
 
-        {/* Save + Share buttons */}
-        {!isDone && !locked && (
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 h-8 text-xs font-bold"
-              disabled={saving} onClick={handleSave}>
-              {saving ? <Loader2 size={12} className="animate-spin" />
-                : existing ? 'Atualizar palpite' : 'Enviar palpite'}
-            </Button>
-            {existing && (
-              <button onClick={handleShare}
-                className="flex items-center gap-1 h-8 rounded-xl border border-border bg-muted/30 px-3 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0">
-                <Share2 size={11} /> Compartilhar
+        <div className="mt-auto flex gap-1 pt-0.5">
+          {!isDone && !locked && (
+            <>
+              <Button size="sm" className="flex-1 h-7 text-[11px] font-bold px-2"
+                disabled={saving} onClick={handleSave}>
+                {saving ? <Loader2 size={11} className="animate-spin" /> : existing ? 'Atualizar' : 'Palpitar'}
+              </Button>
+              {existing && (
+                <button
+                  onClick={handleReset} disabled={deleting}
+                  title="Remover palpite"
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-destructive/30 text-destructive/70 hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
+                >
+                  {deleting ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={11} />}
+                </button>
+              )}
+              <button
+                onClick={() => setShowComment(v => !v)}
+                title="Adicionar comentário"
+                className="h-7 w-7 flex items-center justify-center rounded-lg border border-border/40 bg-muted/20 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              >
+                <span className="text-[10px]">💬</span>
               </button>
-            )}
-          </div>
-        )}
-        {isDone && existing && (
-          <button onClick={handleShare}
-            className="w-full flex items-center justify-center gap-1.5 h-7 rounded-xl border border-border/40 bg-muted/20 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors">
-            <Share2 size={10} /> Compartilhar palpite
-          </button>
-        )}
-        {!isDone && locked && !existing && (
-          <p className="text-center text-[10px] text-muted-foreground/50">Palpites encerrados para este jogo</p>
-        )}
-        {!isDone && locked && existing && (
-          <p className="text-center text-[10px] text-muted-foreground/60">
-            Seu palpite: <strong>{existing.homeScore} × {existing.awayScore}</strong>
-          </p>
-        )}
+            </>
+          )}
+          {(isDone || (locked && existing)) && (
+            <button onClick={handleShare}
+              className="w-full flex items-center justify-center gap-1 h-7 rounded-lg border border-border/30 bg-muted/20 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors">
+              <Share2 size={9} /> Compartilhar
+            </button>
+          )}
+          {!isDone && locked && !existing && (
+            <p className="w-full text-center text-[10px] text-muted-foreground/40 py-1">
+              Palpites fecham 10 min antes
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )
 }
-
-// ── Leaderboard with custom teams ──────────────────────────────────────
 
 function exportRankingImage(
   leagueName: string,
@@ -266,12 +293,10 @@ function exportRankingImage(
   const ctx = canvas.getContext('2d')!
   ctx.scale(2, 2)
 
-  // Background gradient
   const bg = ctx.createLinearGradient(0, 0, 0, H)
   bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#1e293b')
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H)
 
-  // Title
   ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 18px system-ui, sans-serif'
   ctx.fillText('🏆 ' + leagueName, 20, 34)
   ctx.fillStyle = '#64748b'; ctx.font = '12px system-ui, sans-serif'
@@ -279,42 +304,34 @@ function exportRankingImage(
   ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(20, 70); ctx.lineTo(W - 20, 70); ctx.stroke()
 
-  // Rows
   ranked.forEach((m, i) => {
     const y = HEADER_H + i * ROW_H
     const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`
 
-    // Row bg (alternate)
     ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'
     ctx.fillRect(0, y, W, ROW_H)
 
-    // Medal
     ctx.font = 'bold 14px system-ui, sans-serif'
     ctx.fillStyle = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#475569'
     ctx.fillText(medal, 20, y + 34)
 
-    // Name
     ctx.fillStyle = '#f1f5f9'; ctx.font = 'bold 14px system-ui, sans-serif'
     ctx.fillText(m.displayName.slice(0, 22), 60, y + 34)
 
-    // Streak
     if (m.streak > 1) {
       ctx.fillStyle = '#f97316'; ctx.font = 'bold 11px system-ui, sans-serif'
       ctx.fillText(`🔥 ${m.streak}`, W - 130, y + 34)
     }
 
-    // Points
     ctx.fillStyle = '#3b82f6'; ctx.font = 'bold 16px system-ui, sans-serif'
     ctx.textAlign = 'right'
     ctx.fillText(`${m.totalPoints} pts`, W - 20, y + 34)
     ctx.textAlign = 'left'
 
-    // Divider
     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1
     ctx.beginPath(); ctx.moveTo(20, y + ROW_H - 1); ctx.lineTo(W - 20, y + ROW_H - 1); ctx.stroke()
   })
 
-  // Footer
   ctx.fillStyle = '#334155'; ctx.font = '11px system-ui, sans-serif'
   ctx.fillText('Copa do Mundo 2026 · copa2026.app', 20, H - 12)
 
@@ -397,7 +414,6 @@ function Leaderboard({ members, predictions, matches, scoring, currentUserId, cu
               {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
             </span>
 
-            {/* Photo */}
             {m.photoURL ? (
               <img src={m.photoURL} className="h-8 w-8 rounded-full object-cover shrink-0" />
             ) : (
@@ -406,7 +422,6 @@ function Leaderboard({ members, predictions, matches, scoring, currentUserId, cu
               </div>
             )}
 
-            {/* Crest */}
             {ct?.crest ? (
               <div className="h-8 w-8 shrink-0">
                 <CrestPreview
@@ -447,8 +462,6 @@ function Leaderboard({ members, predictions, matches, scoring, currentUserId, cu
   )
 }
 
-// ── Champion prediction card ───────────────────────────────────────────
-
 function ChampionPickCard({ leagueId, userId, champions }: {
   leagueId: string
   userId: string
@@ -488,7 +501,7 @@ function ChampionPickCard({ leagueId, userId, champions }: {
         <Trophy size={16} className="text-amber-500 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-black text-amber-500 uppercase tracking-wide">Palpite no Campeão</p>
-          <p className="text-[10px] text-muted-foreground">Bônus de 30 pts · antes do torneio</p>
+          <p className="text-[10px] text-muted-foreground">Bônus de 30 pts · fecha 10 min antes</p>
         </div>
         {pickedTeam ? (
           <div className="flex items-center gap-2 shrink-0">
@@ -534,8 +547,6 @@ function ChampionPickCard({ leagueId, userId, champions }: {
   )
 }
 
-// ── Team multi-select with flags ───────────────────────────────────────
-
 function TeamMultiSelect({
   value, onChange, matches,
 }: {
@@ -569,7 +580,6 @@ function TeamMultiSelect({
         )}
       </div>
 
-      {/* Selected chips */}
       {selectedCount > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {value.map((id) => {
@@ -586,7 +596,6 @@ function TeamMultiSelect({
         </div>
       )}
 
-      {/* Search */}
       <div className="relative">
         <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input value={search} onChange={(e) => setSearch(e.target.value)}
@@ -594,7 +603,6 @@ function TeamMultiSelect({
           className="w-full rounded-xl border border-border bg-background pl-8 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
       </div>
 
-      {/* Team grid */}
       <div className="max-h-52 overflow-y-auto rounded-xl border border-border bg-background">
         {TEAMS.filter(t => filtered.includes(t)).map((t) => {
           const sel = value.includes(t.id)
@@ -619,8 +627,6 @@ function TeamMultiSelect({
     </div>
   )
 }
-
-// ── Custom match picker with team filter ───────────────────────────────
 
 function CustomMatchPicker({
   allMatches, selected, onToggle,
@@ -712,8 +718,6 @@ function CustomMatchPicker({
   )
 }
 
-// ── Admin panel ────────────────────────────────────────────────────────
-
 function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
   leagueId: string
   league: NonNullable<ReturnType<typeof useLeagueDetails>['league']>
@@ -723,7 +727,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
   const { user } = useAuthStore()
   const { editLeague, deleteLeagueWithCleanup, saving } = useLeagueAdmin(leagueId)
 
-  // Edit state
   const [name, setName] = useState(league.name)
   const [desc, setDesc] = useState(league.description)
   const [scoring, setScoring] = useState(league.config.scoring)
@@ -757,8 +760,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
   async function handleDelete() {
     if (!user) return
     setDeleteError(null)
-    // Navega imediatamente para evitar o flash "Liga não encontrada"
-    // causado pelo onSnapshot detectar a deleção do documento
     toast.success('Liga excluída', {
       description: `"${league.name}" foi removida permanentemente.`,
     })
@@ -783,7 +784,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
 
   return (
     <div className="space-y-4">
-      {/* ── Configurações ── */}
       <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
         <h3 className="font-black text-sm uppercase tracking-wide text-foreground/80 flex items-center gap-1.5">
           <Settings size={14} /> Configurações da Liga
@@ -801,7 +801,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
               className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
-          {/* Scoring */}
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pontuação</p>
             {([
@@ -820,7 +819,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
           </div>
         </div>
 
-        {/* ── Escopo de jogos ── */}
         <div className="space-y-3 pt-2 border-t border-border/40">
           <p className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <Swords size={12} /> Jogos incluídos
@@ -864,7 +862,6 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
         </Button>
       </div>
 
-      {/* ── Zona de Perigo ── */}
       <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
         <h3 className="font-black text-sm text-destructive flex items-center gap-1.5">
           <AlertTriangle size={14} /> Zona de Perigo
@@ -900,7 +897,7 @@ function AdminPanel({ leagueId, league, allMatches, onDeleted }: {
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────────
+const PRED_PAGE_SIZE = 12
 
 type Tab = 'palpites' | 'classificacao' | 'info' | 'admin'
 
@@ -910,6 +907,8 @@ export default function LeaguePage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('palpites')
   const [selectedMember, setSelectedMember] = useState<LeagueMember | null>(null)
+  const [upcomingLimit, setUpcomingLimit] = useState(PRED_PAGE_SIZE)
+  const [finishedLimit, setFinishedLimit] = useState(PRED_PAGE_SIZE)
   const { confirm } = useDialog()
 
   const { league, members, loading, notFound } = useLeagueDetails(leagueId)
@@ -920,10 +919,8 @@ export default function LeaguePage() {
 
   const isOwner = user?.uid === league?.ownerId
 
-  // Filter matches based on league scope
   const scopedMatches = useMemo(() => {
     if (!allMatches || !league) return []
-    // scopeTeamIds (new) takes priority; fall back to legacy scopeTeamId (single)
     const teamIds: string[] = (league as any).scopeTeamIds?.length
       ? (league as any).scopeTeamIds
       : league.scopeTeamId ? [league.scopeTeamId] : []
@@ -1024,7 +1021,6 @@ export default function LeaguePage() {
 
   return (
     <div className="space-y-5">
-      {/* Participant modal */}
       {selectedMember && (
         <ParticipantModal
           member={selectedMember}
@@ -1036,7 +1032,6 @@ export default function LeaguePage() {
         />
       )}
 
-      {/* Header */}
       <div className="flex items-start gap-3">
         <button onClick={() => navigate('/pool')}
           className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition-colors">
@@ -1063,7 +1058,6 @@ export default function LeaguePage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-0.5 bg-muted/50 p-1 rounded-xl border border-border/40">
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -1077,33 +1071,62 @@ export default function LeaguePage() {
         ))}
       </div>
 
-      {/* ── Palpites ── */}
       {tab === 'palpites' && user && (
         <div className="space-y-4">
           <ChampionPickCard leagueId={leagueId!} userId={user.uid} champions={champions} />
 
           {upcomingMatches.length > 0 && (
             <div className="space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
-                {upcomingMatches.some((m) => m.status === 'LIVE') ? 'Ao vivo & próximos' : 'Próximos jogos'} · {upcomingMatches.length}
+              <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                {upcomingMatches.some((m) => m.status === 'LIVE') ? (
+                  <>
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                    Ao vivo &amp; Próximos
+                  </>
+                ) : 'Próximos jogos'}
+                <span className="text-muted-foreground/50">· {upcomingMatches.length}</span>
               </p>
-              {upcomingMatches.map((m) => (
-                <PredictionRow key={m.id} match={m}
-                  existing={myPredictions.find((p) => p.matchId === m.id)}
-                  leagueId={leagueId!} userId={user.uid} scoring={scoring} />
-              ))}
+              <div className="grid grid-cols-2 gap-2">
+                {upcomingMatches.slice(0, upcomingLimit).map((m) => (
+                  <PredictionRow key={m.id} match={m}
+                    existing={myPredictions.find((p) => p.matchId === m.id)}
+                    leagueId={leagueId!} userId={user.uid} scoring={scoring} />
+                ))}
+              </div>
+              {upcomingLimit < upcomingMatches.length && (
+                <button
+                  onClick={() => setUpcomingLimit(l => l + PRED_PAGE_SIZE)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-bold text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
+                >
+                  Mostrar mais ({upcomingMatches.length - upcomingLimit} restantes)
+                </button>
+              )}
             </div>
           )}
+
           {finishedMatches.length > 0 && (
             <div className="space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Encerrados</p>
-              {finishedMatches.map((m) => (
-                <PredictionRow key={m.id} match={m}
-                  existing={myPredictions.find((p) => p.matchId === m.id)}
-                  leagueId={leagueId!} userId={user.uid} scoring={scoring} />
-              ))}
+              <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                Encerrados <span className="text-muted-foreground/50">· {finishedMatches.length}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {finishedMatches.slice(0, finishedLimit).map((m) => (
+                  <PredictionRow key={m.id} match={m}
+                    existing={myPredictions.find((p) => p.matchId === m.id)}
+                    leagueId={leagueId!} userId={user.uid} scoring={scoring} />
+                ))}
+              </div>
+              {finishedLimit < finishedMatches.length && (
+                <button
+                  onClick={() => setFinishedLimit(l => l + PRED_PAGE_SIZE)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-bold text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
+                >
+                  Mostrar mais ({finishedMatches.length - finishedLimit} restantes)
+                </button>
+              )}
             </div>
           )}
+
           {upcomingMatches.length === 0 && finishedMatches.length === 0 && (
             <div className="py-16 text-center text-muted-foreground">
               <p className="font-semibold">Nenhum jogo disponível.</p>
@@ -1113,7 +1136,6 @@ export default function LeaguePage() {
         </div>
       )}
 
-      {/* ── Classificação ── */}
       {tab === 'classificacao' && (
         <div className="space-y-3">
           <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
@@ -1134,7 +1156,6 @@ export default function LeaguePage() {
         </div>
       )}
 
-      {/* ── Info ── */}
       {tab === 'info' && (
         <div className="space-y-4">
           <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
@@ -1199,7 +1220,6 @@ export default function LeaguePage() {
         </div>
       )}
 
-      {/* ── Admin ── */}
       {tab === 'admin' && isOwner && (
         <AdminPanel
           leagueId={leagueId!} league={league}

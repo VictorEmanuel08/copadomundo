@@ -39,24 +39,22 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
     timeZone: 'America/Sao_Paulo',
   })
 
-  // Capitalize: sáb, 13/06 -> Sáb, 13/06
   const dateFormatted = dateStr.charAt(0).toUpperCase() + dateStr.slice(1)
 
   const hasScore = match.score.home !== null && match.score.away !== null
   const isLive = match.status === 'LIVE'
   const isFinal = match.phase === 'FINAL'
 
-  // Position within group, sorted by points → goal diff → goals for
-  const groupRows = standings?.filter((s) => s.group === match.homeTeam.group) ?? []
+  const groupRows = standings?.filter((s) => s.group === match.homeTeam?.group) ?? []
   const sortedGroup = [...groupRows].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
     if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
     return b.goalsFor - a.goalsFor
   })
-  const homePos = match.phase === 'GROUP_STAGE'
+  const homePos = match.phase === 'GROUP_STAGE' && match.homeTeam
     ? (sortedGroup.findIndex((s) => s.team.id === match.homeTeam.id) + 1) || undefined
     : undefined
-  const awayPos = match.phase === 'GROUP_STAGE'
+  const awayPos = match.phase === 'GROUP_STAGE' && match.awayTeam
     ? (sortedGroup.findIndex((s) => s.team.id === match.awayTeam.id) + 1) || undefined
     : undefined
 
@@ -91,7 +89,6 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
         </div>
       )}
 
-      {/* Header */}
       {!compact && (
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {match.group && (
@@ -119,21 +116,18 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
         </div>
       )}
 
-      {/* Teams + Score */}
       <div className="flex items-center gap-2">
-        {/* Home Team */}
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           {renderPositionBadge(homePos)}
           <p className="hidden truncate text-right text-sm font-bold leading-tight sm:block text-foreground/90">
-            {match.homeTeam.name}
+            {match.homeTeam?.name ?? 'A definir'}
           </p>
           <p className="block truncate text-right text-sm font-bold leading-tight sm:hidden text-foreground/90">
-            {match.homeTeam.shortName}
+            {match.homeTeam?.shortName ?? '?'}
           </p>
-          <TeamFlag code={match.homeTeam.code} name={match.homeTeam.name} size={compact ? 20 : 28} />
+          {match.homeTeam && <TeamFlag code={match.homeTeam.code} name={match.homeTeam.name} size={compact ? 20 : 28} />}
         </div>
 
-        {/* Score box */}
         <div
           className={cn(
             'flex w-14 shrink-0 items-center justify-center rounded-xl py-1.5 border border-transparent transition-all',
@@ -150,20 +144,18 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
           )}
         </div>
 
-        {/* Away Team */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <TeamFlag code={match.awayTeam.code} name={match.awayTeam.name} size={compact ? 20 : 28} />
+          {match.awayTeam && <TeamFlag code={match.awayTeam.code} name={match.awayTeam.name} size={compact ? 20 : 28} />}
           <p className="hidden truncate text-sm font-bold leading-tight sm:block text-foreground/90">
-            {match.awayTeam.name}
+            {match.awayTeam?.name ?? 'A definir'}
           </p>
           <p className="block truncate text-sm font-bold leading-tight sm:hidden text-foreground/90">
-            {match.awayTeam.shortName}
+            {match.awayTeam?.shortName ?? '?'}
           </p>
           {renderPositionBadge(awayPos)}
         </div>
       </div>
 
-      {/* Time & Date in Compact Mode (e.g. Pool list) */}
       {compact && (
         <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground font-semibold">
           <Calendar size={10} className="shrink-0" />
@@ -174,7 +166,6 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
         </div>
       )}
 
-      {/* Stadium & City */}
       {!compact && match.stadium && (
         <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin size={11} className="shrink-0" />

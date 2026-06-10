@@ -27,95 +27,59 @@ const FEATURES = [
   'Seleção virtual', 'Ranking', 'Notificações push',
 ]
 
-const STACK = [
-  'React 18 + TypeScript',
-  'Firebase + Firestore',
-  'Cloud Functions',
-  'football-data.org',
-  'Tailwind + shadcn/ui',
-]
-
 export function Footer() {
   const year = new Date().getFullYear()
 
   return (
     <footer className="relative mt-auto border-t border-white/10 bg-[#080e1c] pb-20 md:pb-0">
-      {/* Linha de glow azul no topo */}
       <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-blue-500/50 to-transparent" />
 
-      <div className="mx-auto max-w-7xl px-6 py-12">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <div className="flex flex-col items-center gap-8 md:flex-row md:items-start md:gap-12">
 
-        {/* ── Corpo principal ── */}
-        <div className="flex flex-col items-center gap-10 md:flex-row md:items-start md:gap-16">
-
-          {/* ── Coluna 1: Identidade ── */}
-          <div className="flex flex-col items-center gap-5 md:items-start shrink-0">
-
-            {/* Avatar */}
+          <div className="flex flex-col items-center gap-4 md:items-start shrink-0">
             <div className="relative">
-              <div className="h-20 w-20 rounded-full border-2 border-blue-500/40 bg-linear-to-br from-blue-600/30 to-blue-900/20 flex items-center justify-center shadow-lg shadow-blue-500/10 overflow-hidden">
-                <img src={victorImg} alt="Victor Moura"
-                  className="h-full w-full object-cover" />
+              <div className="h-14 w-14 rounded-full border-2 border-blue-500/40 bg-linear-to-br from-blue-600/30 to-blue-900/20 flex items-center justify-center shadow-lg shadow-blue-500/10 overflow-hidden">
+                <img src={victorImg} alt="Victor Moura" className="h-full w-full object-cover" />
               </div>
-              {/* Dot de status */}
-              <span className="absolute bottom-1 right-1 h-3 w-3 rounded-full border-2 border-[#080e1c] bg-emerald-400 shadow shadow-emerald-400/50" />
+              <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[#080e1c] bg-emerald-400 shadow shadow-emerald-400/50" />
             </div>
-
-            {/* Nome */}
             <div className="text-center md:text-left">
-              <p className="text-lg font-black tracking-[0.2em] text-white uppercase">VM CODES</p>
-              <p className="mt-1 text-xs text-slate-400 font-medium">Victor Moura · Front End Developer</p>
+              <p className="text-base font-black tracking-[0.2em] text-white uppercase">VM CODES</p>
+              <p className="mt-0.5 text-xs text-slate-400 font-medium">Victor Moura · Front End Developer</p>
             </div>
-
-            {/* Redes sociais */}
             <div className="flex gap-2">
               {SOCIAL_LINKS.map(({ label, href, svg }) => (
                 <a key={label} href={href} target="_blank" rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-all hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-400 hover:scale-105">
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-all hover:border-blue-500/50 hover:bg-blue-500/10 hover:text-blue-400 hover:scale-105">
                   {svg}
                 </a>
               ))}
             </div>
           </div>
 
-          {/* Divisor */}
           <div className="hidden md:block w-px self-stretch bg-white/8" />
 
-          {/* ── Coluna 2: Sobre ── */}
-          <div className="flex-1 space-y-5 text-center md:text-left">
+          <div className="flex-1 space-y-4 text-center md:text-left">
             <div>
-              <p className="text-base font-black text-white">🏆 Copa do Mundo 2026</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400 max-w-xs mx-auto md:mx-0">
-                Acompanhe a Copa com placares ao vivo, chaveamento interativo
-                e bolão privado com seus amigos.
+              <p className="text-sm font-black text-white">🏆 Copa do Mundo 2026</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-400 max-w-xs mx-auto md:mx-0">
+                Acompanhe a Copa com placares ao vivo, chaveamento interativo e bolão privado com seus amigos.
               </p>
             </div>
-
-            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+            <div className="flex flex-wrap justify-center md:justify-start gap-1.5">
               {FEATURES.map((f) => (
-                <span key={f}
-                  className="rounded-full border border-blue-500/20 bg-blue-500/8 px-3 py-1 text-[11px] font-semibold text-blue-300">
+                <span key={f} className="rounded-full border border-blue-500/20 bg-blue-500/8 px-2.5 py-0.5 text-[11px] font-semibold text-blue-300">
                   {f}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* ── Coluna 3: Stack ── */}
-          <div className="hidden lg:flex flex-col gap-2 shrink-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Stack</p>
-            {STACK.map((t) => (
-              <p key={t} className="text-xs text-slate-400 flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-blue-500/60 shrink-0" />
-                {t}
-              </p>
-            ))}
-          </div>
         </div>
 
-        {/* ── Rodapé inferior ── */}
-        <div className="mt-10 flex flex-col items-center gap-2 border-t border-white/8 pt-6 md:flex-row md:justify-between">
+        <div className="mt-6 flex flex-col items-center gap-1.5 border-t border-white/8 pt-5 md:flex-row md:justify-between">
           <p className="text-xs text-slate-500">
             © {year} <span className="font-bold text-slate-400">VM CODES</span> · Todos os direitos reservados
           </p>
