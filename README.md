@@ -203,7 +203,7 @@ A partir do deploy, o documento `cache/matches` é atualizado a cada minuto e vo
 
 Cada usuário pode criar ou entrar em ligas privadas com um **código de convite**. Dentro de cada liga:
 
-- **Palpites por jogo** — placar exato antes do jogo começar (trava 30 min antes)
+- **Palpites por jogo** — placar exato antes do jogo começar (trava 10 min antes)
 - **Comentário por jogo** — 1 linha de texto que aparece junto com o palpite
 - **Palpite no Campeão** — qual seleção vai ganhar o torneio (bônus de 30 pts)
 - **Ranking em tempo real** — classificação atualizada conforme os jogos terminam
