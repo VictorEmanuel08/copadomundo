@@ -13,14 +13,14 @@ export function ScoreInput({ value, onChange, disabled = false, size = 'md' }: S
 
   const btnBase = cn(
     'flex items-center justify-center rounded-full border font-bold transition-all duration-150 select-none',
-    isSmall ? 'h-7 w-7' : 'h-9 w-9',
+    isSmall ? 'h-6 w-6' : 'h-9 w-9',
     disabled
       ? 'border-border/20 bg-transparent text-muted-foreground/20 cursor-not-allowed'
       : 'border-border bg-muted/50 text-muted-foreground hover:border-primary/60 hover:bg-primary/10 hover:text-primary active:scale-90 cursor-pointer',
   )
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={cn('flex items-center', isSmall ? 'gap-1' : 'gap-2')}>
       <button
         type="button"
         onClick={() => { if (!disabled && value > 0) onChange(value - 1) }}
@@ -34,7 +34,7 @@ export function ScoreInput({ value, onChange, disabled = false, size = 'md' }: S
       <span
         className={cn(
           'tabular-nums font-black text-foreground leading-none text-center select-none',
-          isSmall ? 'w-6 text-xl' : 'w-9 text-3xl',
+          isSmall ? 'w-5 text-base' : 'w-9 text-3xl',
         )}
       >
         {value}

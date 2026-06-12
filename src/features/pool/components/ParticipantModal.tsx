@@ -73,6 +73,11 @@ export function ParticipantModal({
   }, [champions, member.userId])
 
   useEffect(() => {
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = "" }
+  }, [])
+
+  useEffect(() => {
     getDoc(doc(db, "customTeams", member.userId))
       .then((snap) => {
         if (snap.exists()) setCt(snap.data() as CustomTeamData)
@@ -141,10 +146,10 @@ export function ParticipantModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-background shadow-2xl sm:max-w-lg sm:rounded-3xl">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl">
         {/* Header */}
         <div className="flex shrink-0 items-center gap-3 border-b border-border/40 px-5 py-4">
           {member.photoURL ? (
