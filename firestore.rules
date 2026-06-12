@@ -64,7 +64,8 @@ service cloud.firestore {
       allow update, delete: if isLeagueOwner(leagueId);
 
       match /members/{memberId} {
-        allow read: if isMember(leagueId) || isLeagueOwner(leagueId);
+        // Usuário pode ler o próprio doc (necessário para checar se já é membro ao entrar)
+        allow read: if isMember(leagueId) || isLeagueOwner(leagueId) || (isAuth() && request.auth.uid == memberId);
         allow create, update: if isAuth() && request.auth.uid == memberId;
         // Pode sair (delete próprio) ou owner pode remover qualquer membro
         allow delete: if isAuth() && (request.auth.uid == memberId || isLeagueOwner(leagueId));

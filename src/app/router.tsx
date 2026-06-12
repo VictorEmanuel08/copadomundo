@@ -43,11 +43,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'pool/join',
-        element: <AuthGuard>{lazy_page(() => import('@/features/pool/pages/JoinLeaguePage'))}</AuthGuard>,
+        element: lazy_page(() => import('@/features/pool/pages/JoinLeaguePage')),
       },
       {
         path: 'pool/join/:inviteCode',
-        element: <AuthGuard>{lazy_page(() => import('@/features/pool/pages/JoinLeaguePage'))}</AuthGuard>,
+        element: lazy_page(() => import('@/features/pool/pages/JoinLeaguePage')),
       },
       {
         path: 'my-team',
