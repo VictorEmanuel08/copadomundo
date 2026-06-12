@@ -154,6 +154,7 @@ export default function CustomTeamPage() {
   const [playerNumber, setPlayerNumber] = useState('')
   const [showOnJersey, setShowOnJersey] = useState(false)
   const [playerNameColor, setPlayerNameColor] = useState('#ffffff')
+  const [textScale, setTextScale] = useState(1)
   const [formation, setFormation] = useState('4-3-3')
 
   // Crest
@@ -162,14 +163,18 @@ export default function CustomTeamPage() {
   const [crestPrimary, setCrestPrimary] = useState('#1e3a8a')
   const [crestSecondary, setCrestSecondary] = useState('#f59e0b')
   const [stars, setStars] = useState(0)
+  const [showCrestOutline, setShowCrestOutline] = useState(true)
+  const [crestOutlineColor, setCrestOutlineColor] = useState('#f59e0b')
+  const [crestStarsColor, setCrestStarsColor] = useState('#ffffff')
 
   // Kit
   const [kitPrimary, setKitPrimary] = useState('#1e3a8a')
   const [kitSecondary, setKitSecondary] = useState('#ffffff')
-  const [kitTertiary, setKitTertiary] = useState('#f59e0b')
   const [pattern, setPattern] = useState<KitPattern>('solid')
-  const [collar] = useState<CollarType>('round') // kept for data compat
-  const [numberColor, setNumberColor] = useState('#ffffff')
+  const [collar] = useState<CollarType>('round')
+  const [showOutline, setShowOutline] = useState(true)
+  const [outlineColor, setOutlineColor] = useState('#ffffff')
+  const [showCrestOnJersey, setShowCrestOnJersey] = useState(false)
 
   // Load from Firestore
   useEffect(() => {
@@ -184,6 +189,7 @@ export default function CustomTeamPage() {
       if (d.playerNumber !== undefined) setPlayerNumber(d.playerNumber)
       if (d.showOnJersey !== undefined) setShowOnJersey(d.showOnJersey)
       if (d.playerNameColor) setPlayerNameColor(d.playerNameColor)
+      if (d.textScale !== undefined) setTextScale(d.textScale)
       if (d.formation) setFormation(d.formation)
       if (d.crest) {
         if (d.crest.shape) setCrestShape(d.crest.shape)
@@ -191,13 +197,17 @@ export default function CustomTeamPage() {
         if (d.crest.primaryColor) setCrestPrimary(d.crest.primaryColor)
         if (d.crest.secondaryColor) setCrestSecondary(d.crest.secondaryColor)
         if (d.crest.stars !== undefined) setStars(d.crest.stars)
+        if (d.crest.showOutline !== undefined) setShowCrestOutline(d.crest.showOutline)
+        if (d.crest.outlineColor) setCrestOutlineColor(d.crest.outlineColor)
+        if (d.crest.starsColor) setCrestStarsColor(d.crest.starsColor)
       }
       if (d.kit) {
         if (d.kit.primaryColor) setKitPrimary(d.kit.primaryColor)
         if (d.kit.secondaryColor) setKitSecondary(d.kit.secondaryColor)
-        if (d.kit.tertiaryColor) setKitTertiary(d.kit.tertiaryColor)
         if (d.kit.pattern) setPattern(d.kit.pattern)
-        if (d.kit.numberColor) setNumberColor(d.kit.numberColor)
+        if (d.kit.outlineColor) setOutlineColor(d.kit.outlineColor)
+        if (d.kit.showOutline !== undefined) setShowOutline(d.kit.showOutline)
+        if (d.kit.showCrestOnJersey !== undefined) setShowCrestOnJersey(d.kit.showCrestOnJersey)
       }
     }).catch(console.error)
   }, [user])
@@ -209,9 +219,9 @@ export default function CustomTeamPage() {
       await setDoc(doc(db, 'customTeams', user.uid), {
         ownerId: user.uid, name,
         acronym: acronym.slice(0, 3).toUpperCase(), country,
-        playerName, playerNumber, showOnJersey, playerNameColor, formation,
-        crest: { shape: crestShape, pattern: crestPattern, primaryColor: crestPrimary, secondaryColor: crestSecondary, stars },
-        kit: { primaryColor: kitPrimary, secondaryColor: kitSecondary, tertiaryColor: kitTertiary, collar, pattern, numberColor },
+        playerName, playerNumber, showOnJersey, playerNameColor, textScale, formation,
+        crest: { shape: crestShape, pattern: crestPattern, primaryColor: crestPrimary, secondaryColor: crestSecondary, stars, showOutline: showCrestOutline, outlineColor: crestOutlineColor, starsColor: crestStarsColor },
+        kit: { primaryColor: kitPrimary, secondaryColor: kitSecondary, collar, pattern, outlineColor, showOutline, showCrestOnJersey },
         updatedAt: serverTimestamp(),
       })
       setSaved(true)
@@ -221,7 +231,7 @@ export default function CustomTeamPage() {
   }
 
   function applyPreset(p: typeof COLOR_PRESETS[number]) {
-    setKitPrimary(p.primary); setKitSecondary(p.secondary); setKitTertiary(p.tertiary)
+    setKitPrimary(p.primary); setKitSecondary(p.secondary)
     setCrestPrimary(p.primary); setCrestSecondary(p.secondary)
   }
 
@@ -240,7 +250,9 @@ export default function CustomTeamPage() {
 
           <div className="absolute top-4 right-4 bg-white/5 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-lg hover:scale-105 transition-all duration-300 cursor-pointer">
             <CrestPreview primaryColor={crestPrimary} secondaryColor={crestSecondary}
-              acronym={acronym || 'AAA'} shape={crestShape} pattern={crestPattern} stars={stars} size="md" />
+              acronym={acronym || 'AAA'} shape={crestShape} pattern={crestPattern} stars={stars}
+              showOutline={showCrestOutline} outlineColor={crestOutlineColor}
+              starsColor={crestStarsColor} size="md" />
           </div>
 
           <div className="absolute top-4 left-4 bg-emerald-500/15 border border-emerald-500/35 text-emerald-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
@@ -255,11 +267,17 @@ export default function CustomTeamPage() {
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-px bg-slate-500/40" />
             </div>
             <KitPreview
-              primaryColor={kitPrimary} secondaryColor={kitSecondary} tertiaryColor={kitTertiary}
-              pattern={pattern} collar={collar} numberColor={numberColor}
+              primaryColor={kitPrimary} secondaryColor={kitSecondary}
+              pattern={pattern} collar={collar} numberColor={playerNameColor}
               number={showOnJersey ? (playerNumber || '10') : undefined}
               playerName={showOnJersey ? (playerName || undefined) : undefined}
-              playerNameColor={playerNameColor} size="lg"
+              playerNameColor={playerNameColor} textScale={textScale}
+              outlineColor={outlineColor} showOutline={showOutline}
+              showCrest={showCrestOnJersey}
+              crestPrimary={crestPrimary} crestSecondary={showCrestOutline ? crestOutlineColor : crestPrimary}
+              crestShape={crestShape} crestPattern={crestPattern}
+              crestAcronym={acronym || 'AAA'} crestStars={stars}
+              size="lg"
             />
           </div>
 
@@ -300,38 +318,6 @@ export default function CustomTeamPage() {
                 ))}
               </div>
 
-              <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-black text-sm uppercase tracking-wide text-foreground/80">Jogador na Camisa</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">Nome e número impressos no uniforme</p>
-                  </div>
-                  <div onClick={() => setShowOnJersey(v => !v)}
-                    className={cn('relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer',
-                      showOnJersey ? 'bg-primary' : 'bg-muted-foreground/30')}>
-                    <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
-                      showOnJersey ? 'translate-x-4' : 'translate-x-0.5')} />
-                  </div>
-                </div>
-                <div className={cn('space-y-4 transition-all', !showOnJersey && 'opacity-40 pointer-events-none')}>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Nome</label>
-                      <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)}
-                        placeholder="Ex: SILVA" maxLength={10} disabled={!showOnJersey}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Número</label>
-                      <input type="number" value={playerNumber} min={1} max={99}
-                        onChange={(e) => setPlayerNumber(e.target.value)}
-                        placeholder="10" disabled={!showOnJersey}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-black text-center focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    </div>
-                  </div>
-                  <ColorPicker label="Cor do nome e número" value={playerNameColor} onChange={setPlayerNameColor} />
-                </div>
-              </div>
             </div>
           )}
 
@@ -359,11 +345,28 @@ export default function CustomTeamPage() {
               <div className="space-y-3">
                 <ColorPicker label="Cor Principal" value={crestPrimary} onChange={setCrestPrimary} />
                 <ColorPicker label="Cor Secundária" value={crestSecondary} onChange={setCrestSecondary} />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Contorno do Escudo</p>
+                    <div onClick={() => setShowCrestOutline(v => !v)}
+                      className={cn('relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer',
+                        showCrestOutline ? 'bg-primary' : 'bg-muted-foreground/30')}>
+                      <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                        showCrestOutline ? 'translate-x-4' : 'translate-x-0.5')} />
+                    </div>
+                  </div>
+                  {showCrestOutline && (
+                    <ColorPicker label="Cor do Contorno" value={crestOutlineColor} onChange={setCrestOutlineColor} />
+                  )}
+                </div>
               </div>
               <OptionGroup label="Estrelas de Título"
                 options={[0,1,2,3,4,5].map((n) => ({ value: n, label: n === 0 ? 'Nenhuma' : '★'.repeat(n) }))}
                 value={stars} onChange={setStars}
               />
+              {stars > 0 && (
+                <ColorPicker label="Cor das Estrelas" value={crestStarsColor} onChange={setCrestStarsColor} />
+              )}
             </div>
           )}
 
@@ -388,8 +391,20 @@ export default function CustomTeamPage() {
                 <h3 className="font-black text-sm uppercase tracking-wide text-foreground/80">Cores do Uniforme</h3>
                 <ColorPicker label="Cor Principal" value={kitPrimary} onChange={setKitPrimary} />
                 <ColorPicker label="Cor Secundária" value={kitSecondary} onChange={setKitSecondary} />
-                <ColorPicker label="Detalhes / Mangas" value={kitTertiary} onChange={setKitTertiary} />
-                <ColorPicker label="Cor do Número" value={numberColor} onChange={setNumberColor} />
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Contorno da Camisa</p>
+                    <div onClick={() => setShowOutline(v => !v)}
+                      className={cn('relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer',
+                        showOutline ? 'bg-primary' : 'bg-muted-foreground/30')}>
+                      <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                        showOutline ? 'translate-x-4' : 'translate-x-0.5')} />
+                    </div>
+                  </div>
+                  {showOutline && (
+                    <ColorPicker label="Cor do Contorno" value={outlineColor} onChange={setOutlineColor} />
+                  )}
+                </div>
                 <OptionGroup label="Estampa"
                   options={[
                     { value: 'solid', label: 'Sólida' }, { value: 'stripes', label: 'Listras Vert.' },
@@ -401,6 +416,75 @@ export default function CustomTeamPage() {
                   ]}
                   value={pattern} onChange={setPattern}
                 />
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-foreground/80">Escudo na Camisa</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Exibe seu escudo no peito do uniforme</p>
+                  </div>
+                  <div onClick={() => setShowCrestOnJersey(v => !v)}
+                    className={cn('relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer',
+                      showCrestOnJersey ? 'bg-primary' : 'bg-muted-foreground/30')}>
+                    <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                      showCrestOnJersey ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </div>
+                </div>
+                {showCrestOnJersey && (
+                  <p className="text-xs text-muted-foreground">As cores e formato vêm da aba Escudo.</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-foreground/80">Jogador na Camisa</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Nome e número impressos no uniforme</p>
+                  </div>
+                  <div onClick={() => setShowOnJersey(v => !v)}
+                    className={cn('relative h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer',
+                      showOnJersey ? 'bg-primary' : 'bg-muted-foreground/30')}>
+                    <span className={cn('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+                      showOnJersey ? 'translate-x-4' : 'translate-x-0.5')} />
+                  </div>
+                </div>
+                <div className={cn('space-y-4 transition-all', !showOnJersey && 'opacity-40 pointer-events-none')}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Nome</label>
+                      <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)}
+                        placeholder="Ex: SILVA" maxLength={10} disabled={!showOnJersey}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Número (00–99)</label>
+                      <input
+                        type="text" inputMode="numeric" value={playerNumber}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
+                          setPlayerNumber(v)
+                        }}
+                        placeholder="10" disabled={!showOnJersey} maxLength={2}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-black text-center focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    </div>
+                  </div>
+                  <ColorPicker label="Cor do nome e número" value={playerNameColor} onChange={setPlayerNameColor} />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Tamanho do texto</p>
+                      <span className="text-xs font-mono font-bold text-primary">{Math.round(textScale * 100)}%</span>
+                    </div>
+                    <input
+                      type="range" min={50} max={150} step={5}
+                      value={Math.round(textScale * 100)}
+                      onChange={(e) => setTextScale(Number(e.target.value) / 100)}
+                      disabled={!showOnJersey}
+                      className="w-full accent-primary disabled:opacity-40 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[9px] text-muted-foreground/60 font-mono">
+                      <span>50%</span><span>100%</span><span>150%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

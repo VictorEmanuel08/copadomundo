@@ -401,6 +401,55 @@ export default function PoolPage() {
         </button>
       </div>
 
+      {/* ─── Minhas Ligas ─────────────────────────────────────────────── */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold text-sm">Minhas Ligas Privadas</h2>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs font-bold"
+            onClick={() => handleAction('/pool/league/new')}>
+            <Plus size={12} /> Nova liga
+          </Button>
+        </div>
+
+        {!user ? (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm font-semibold text-muted-foreground">Faça login para ver suas ligas.</p>
+          </div>
+        ) : loadingLeagues ? (
+          <div className="flex justify-center py-10">
+            <Loader2 size={20} className="animate-spin text-muted-foreground/40" />
+          </div>
+        ) : myLeagues.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-sm font-semibold text-muted-foreground">Você ainda não tem ligas privadas.</p>
+            <p className="text-xs text-muted-foreground mt-1">Crie uma liga ou entre com um código de convite.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {myLeagues.map((lg) => (
+              <button
+                key={lg.leagueId}
+                onClick={() => navigate(`/pool/league/${lg.leagueId}`)}
+                className="w-full text-left flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 hover:shadow transition-all"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                  {lg.role === 'owner'
+                    ? <Crown size={16} className="text-amber-500" />
+                    : <Users size={16} className="text-primary" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate">{lg.name}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{lg.inviteCode}</p>
+                </div>
+                <ChevronRight size={15} className="text-muted-foreground shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ─── Bolão da Galera ───────────────────────────────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between border-b border-border/40 pb-2">
@@ -470,55 +519,6 @@ export default function PoolPage() {
               <PastMatchesSection matches={finishedMatches} getMatchStats={getMatchStats} user={user} />
             )}
           </>
-        )}
-      </div>
-
-      {/* ─── Minhas Ligas ─────────────────────────────────────────────── */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold text-sm">Minhas Ligas Privadas</h2>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs font-bold"
-            onClick={() => handleAction('/pool/league/new')}>
-            <Plus size={12} /> Nova liga
-          </Button>
-        </div>
-
-        {!user ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm font-semibold text-muted-foreground">Faça login para ver suas ligas.</p>
-          </div>
-        ) : loadingLeagues ? (
-          <div className="flex justify-center py-10">
-            <Loader2 size={20} className="animate-spin text-muted-foreground/40" />
-          </div>
-        ) : myLeagues.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm font-semibold text-muted-foreground">Você ainda não tem ligas privadas.</p>
-            <p className="text-xs text-muted-foreground mt-1">Crie uma liga ou entre com um código de convite.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {myLeagues.map((lg) => (
-              <button
-                key={lg.leagueId}
-                onClick={() => navigate(`/pool/league/${lg.leagueId}`)}
-                className="w-full text-left flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 hover:shadow transition-all"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                  {lg.role === 'owner'
-                    ? <Crown size={16} className="text-amber-500" />
-                    : <Users size={16} className="text-primary" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{lg.name}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{lg.inviteCode}</p>
-                </div>
-                <ChevronRight size={15} className="text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
         )}
       </div>
 

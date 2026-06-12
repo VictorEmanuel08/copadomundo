@@ -10,6 +10,9 @@ interface CrestPreviewProps {
   shape: CrestShape
   pattern?: CrestPattern
   stars: number
+  showOutline?: boolean
+  outlineColor?: string
+  starsColor?: string
   size?: 'xs' | 'sm' | 'md' | 'lg'
 }
 
@@ -20,8 +23,12 @@ export function CrestPreview({
   shape,
   pattern = 'solid',
   stars,
+  showOutline = true,
+  outlineColor,
+  starsColor = '#ffffff',
   size = 'md',
 }: CrestPreviewProps) {
+  const borderColor = outlineColor ?? secondaryColor
   const sizeClass = { xs: 'h-8 w-8', sm: 'h-16 w-16', md: 'h-28 w-28', lg: 'h-40 w-40' }[size]
   const fontSize = { xs: 7, sm: 13, md: 20, lg: 30 }[size]
 
@@ -137,11 +144,11 @@ export function CrestPreview({
         </g>
 
         {/* Border outline */}
-        {shape === 'round' ? (
-          <circle cx="50" cy="50" r="45" fill="none" stroke={secondaryColor} strokeWidth="4.5" />
+        {showOutline && (shape === 'round' ? (
+          <circle cx="50" cy="50" r="45" fill="none" stroke={borderColor} strokeWidth="4.5" />
         ) : (
-          <path d={clipPathD} fill="none" stroke={secondaryColor} strokeWidth="4.5" strokeLinejoin="round" />
-        )}
+          <path d={clipPathD} fill="none" stroke={borderColor} strokeWidth="4.5" strokeLinejoin="round" />
+        ))}
 
         {/* Stars */}
         {stars > 0 && (
@@ -155,8 +162,8 @@ export function CrestPreview({
                   key={i}
                   transform={`translate(${i * spacing - offset}, 0)`}
                   points="0,-5 1.5,-1 5,-1 2.2,2 3.2,5.5 0,3.5 -3.2,5.5 -2.2,2 -5,-1 -1.5,-1"
-                  fill="#ffffff"
-                  stroke={secondaryColor}
+                  fill={starsColor}
+                  stroke={borderColor}
                   strokeWidth="1"
                   className="drop-shadow-sm"
                 />

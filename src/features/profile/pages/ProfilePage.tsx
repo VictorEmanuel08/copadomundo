@@ -113,8 +113,8 @@ export default function ProfilePage() {
                 {ct.kit && (
                   <KitPreview
                     primaryColor={ct.kit.primaryColor} secondaryColor={ct.kit.secondaryColor}
-                    tertiaryColor={ct.kit.tertiaryColor} pattern={ct.kit.pattern as any}
-                    collar={ct.kit.collar as any} numberColor={ct.kit.numberColor}
+                    pattern={ct.kit.pattern as any}
+                    collar={ct.kit.collar as any}
                     number={ct.showOnJersey && ct.playerNumber ? ct.playerNumber : undefined}
                     playerName={ct.showOnJersey && ct.playerName ? ct.playerName : undefined}
                     playerNameColor={ct.playerNameColor}

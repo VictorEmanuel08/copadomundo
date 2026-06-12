@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { Copy, Check, Pipette } from 'lucide-react'
+import { Copy, Check, Grip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── Paleta de cores (por família) ──────────────────────────────────────
@@ -27,7 +27,6 @@ interface ColorPickerProps {
   label: string
   value: string
   onChange: (v: string) => void
-  compact?: boolean
 }
 
 export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
@@ -36,16 +35,13 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
   const [copied, setCopied] = useState(false)
   const [open, setOpen] = useState(false)
 
-  // Keep hex in sync if parent changes value
   useEffect(() => {
     setHex(value.replace('#', '').toUpperCase())
   }, [value])
 
   function applyColor(raw: string) {
     const cleaned = raw.startsWith('#') ? raw : '#' + raw
-    if (isValidHex(cleaned)) {
-      onChange(cleaned)
-    }
+    if (isValidHex(cleaned)) onChange(cleaned)
   }
 
   function handleHexInput(raw: string) {
@@ -55,7 +51,17 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(value)
+    // Guarantee full 7-char hex (#RRGGBB)
+    const normalized = value.startsWith('#') ? value.toUpperCase() : '#' + value.toUpperCase()
+    navigator.clipboard.writeText(normalized).catch(() => {
+      // fallback for browsers that block clipboard
+      const el = document.createElement('textarea')
+      el.value = normalized
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+    })
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -66,20 +72,10 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
 
       {/* Main row */}
       <div className="flex items-center gap-2">
-        {/* Color swatch (click to open native picker) */}
-        <button
-          type="button"
-          onClick={() => nativeRef.current?.click()}
-          title="Abrir seletor de cor"
-          className="h-9 w-9 shrink-0 rounded-xl border-2 border-white/15 shadow-md ring-1 ring-border cursor-pointer hover:scale-105 transition-transform"
+        {/* Color swatch preview (static) */}
+        <div
+          className="h-9 w-9 shrink-0 rounded-xl border-2 border-white/15 shadow-md ring-1 ring-border"
           style={{ background: value }}
-        />
-        <input
-          ref={nativeRef}
-          type="color"
-          value={value}
-          onChange={(e) => { applyColor(e.target.value); setHex(e.target.value.replace('#', '').toUpperCase()) }}
-          className="sr-only"
         />
 
         {/* Hex input */}
@@ -88,9 +84,8 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           <input
             value={hex}
             onChange={(e) => handleHexInput(e.target.value)}
-            onBlur={() => { if (hex.length < 6) setHex(value.replace('#','').toUpperCase()) }}
-            maxLength={6}
-            className="flex-1 bg-transparent text-sm font-mono font-bold focus:outline-none uppercase tracking-wider w-0"
+            onBlur={() => { if (hex.length < 6) setHex(value.replace('#', '').toUpperCase()) }}
+            className="flex-1 bg-transparent text-sm font-mono font-bold focus:outline-none uppercase tracking-wider min-w-0"
             placeholder="000000"
           />
         </div>
@@ -102,34 +97,58 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
           title="Copiar cor"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
         >
-          {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+          {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
         </button>
 
-        {/* Expand swatches toggle */}
+        {/* Native color picker (todas as cores) — icon: pipette/palette */}
+        <button
+          type="button"
+          onClick={() => nativeRef.current?.click()}
+          title="Selecionar cor personalizada"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+        >
+          {/* Inline palette SVG icon */}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+          </svg>
+        </button>
+        <input
+          ref={nativeRef}
+          type="color"
+          value={value}
+          onChange={(e) => { applyColor(e.target.value); setHex(e.target.value.replace('#', '').toUpperCase()) }}
+          className="sr-only"
+        />
+
+        {/* Swatches toggle */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          title="Ver paleta"
+          title="Ver paleta de cores"
           className={cn(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-all',
             open ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted',
           )}
         >
-          <Pipette size={13} />
+          <Grip size={13} />
         </button>
       </div>
 
       {/* Swatches grid */}
       {open && (
         <div className="rounded-2xl border border-border bg-card p-3 shadow-xl space-y-2 z-10 relative">
-          <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Paleta</p>
+          <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Paleta rápida</p>
           <div className="grid grid-cols-8 gap-1.5">
             {SWATCHES.map((s) => (
               <button
                 key={s}
                 type="button"
                 title={s}
-                onClick={() => { applyColor(s); setHex(s.replace('#','').toUpperCase()); setOpen(false) }}
+                onClick={() => { applyColor(s); setHex(s.replace('#', '').toUpperCase()); setOpen(false) }}
                 className={cn(
                   'h-7 w-7 rounded-lg border transition-all hover:scale-110 active:scale-95',
                   value.toLowerCase() === s.toLowerCase()
@@ -141,7 +160,6 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
               />
             ))}
           </div>
-          <p className="text-[9px] text-muted-foreground/60">Ou use o seletor de cor (ícone esquerdo) para cor personalizada.</p>
         </div>
       )}
     </div>
