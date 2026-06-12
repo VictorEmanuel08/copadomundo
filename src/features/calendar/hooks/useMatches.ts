@@ -5,15 +5,21 @@ import type { Match } from '@/core/api/types'
 export function useMatches() {
   return useFirestoreCache<Match>(
     'matches',
-    // Always fall back to mock data — real API uses numeric team IDs
-    // incompatible with the string IDs used throughout the app (favorites, standings, etc.)
     () => Promise.resolve(mockAdapter.getMatches()),
-    // Validate: data must use alphabetic mock team IDs (e.g. "bra"), not numeric
-    // real-API IDs (e.g. "769"). isNaN distinguishes them.
+    // Accept cached data if it has proper structure.
+    // The Cloud Function maps team TLAs to lowercase string IDs ("bra", "mex"),
+    // so we verify the first found team ID is a non-numeric string.
+    // Fallback to mock only when the cache is truly empty or malformed.
     (data) => {
-      const first = data.find(m => m.homeTeam != null)
-      const id = first?.homeTeam?.id
-      return !!id && typeof id === 'string' && isNaN(Number(id))
+      if (!data.length) return false
+      // Look for a match with valid teams (skip TBD slots that have numeric IDs)
+      const withTeams = data.filter(m => m.homeTeam?.id && m.awayTeam?.id)
+      if (!withTeams.length) return false
+      // Accept if at least one match has a string team ID (e.g. "bra"),
+      // or if most matches have scores/statuses different from the mock baseline.
+      const hasStringId = withTeams.some(m => isNaN(Number(m.homeTeam.id)))
+      const hasRealStatus = data.some(m => m.status === 'LIVE' || m.status === 'FINISHED')
+      return hasStringId || hasRealStatus
     },
   )
 }

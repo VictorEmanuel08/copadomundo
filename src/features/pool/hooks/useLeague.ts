@@ -350,12 +350,19 @@ export function useMembersCustomTeams(memberIds: string[]) {
 export async function savePrediction(
   leagueId: string, userId: string, matchId: string,
   homeScore: number, awayScore: number, comment?: string,
+  matchDate?: string,
 ): Promise<void> {
-  await setDoc(doc(db, 'leagues', leagueId, 'predictions', `${userId}_${matchId}`), {
+  const data: Record<string, unknown> = {
     userId, matchId, homeScore, awayScore,
     comment: comment ?? '',
     submittedAt: serverTimestamp(),
-  })
+  }
+  // Store lock timestamp (10 min before kick-off) so Firestore rules can enforce it
+  if (matchDate) {
+    const lockedAt = new Date(new Date(matchDate).getTime() - 10 * 60 * 1000)
+    data.matchLockedAt = lockedAt
+  }
+  await setDoc(doc(db, 'leagues', leagueId, 'predictions', `${userId}_${matchId}`), data)
 }
 
 export async function deletePrediction(

@@ -102,7 +102,7 @@ function PredictionRow({ match, existing, leagueId, userId, scoring }: {
   async function handleSave() {
     setSaving(true)
     try {
-      await savePrediction(leagueId, userId, match.id, home, away, comment)
+      await savePrediction(leagueId, userId, match.id, home, away, comment, match.date)
       toast.success(existing ? 'Palpite atualizado! ✏️' : 'Palpite enviado! 🎯', {
         description: `${match.homeTeam.shortName} ${home}×${away} ${match.awayTeam.shortName}`,
       })

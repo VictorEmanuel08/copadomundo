@@ -98,6 +98,22 @@ function mapPhase(stage: string) {
   return map[stage] ?? 'GROUP_STAGE'
 }
 
+// Grupo de cada seleção no sorteio da Copa 2026
+const TLA_GROUP: Record<string, string> = {
+  MEX: 'A', RSA: 'A', KOR: 'A', CZE: 'A',
+  CAN: 'B', BIH: 'B', QAT: 'B', SUI: 'B',
+  BRA: 'C', MAR: 'C', HAI: 'C', SCO: 'C',
+  USA: 'D', PAR: 'D', AUS: 'D', TUR: 'D',
+  GER: 'E', CUW: 'E', CIV: 'E', ECU: 'E',
+  NED: 'F', JPN: 'F', SWE: 'F', TUN: 'F',
+  BEL: 'G', EGY: 'G', KSA: 'G', URY: 'G',
+  IRN: 'H', NZL: 'H', ESP: 'H', CPV: 'H',
+  FRA: 'I', SEN: 'I', IRQ: 'I', NOR: 'I',
+  ARG: 'J', ALG: 'J', AUT: 'J', JOR: 'J',
+  POR: 'K', COD: 'K', UZB: 'K', COL: 'K',
+  ENG: 'L', CRO: 'L', GHA: 'L', PAN: 'L',
+}
+
 function mapGroup(g: string | null) {
   if (!g) return null
   return g.replace('GROUP_', '') || null
@@ -106,14 +122,14 @@ function mapGroup(g: string | null) {
 function mapTeam(raw: ApiTeam, group?: string | null) {
   const tla = raw.tla?.toUpperCase() ?? ''
   const mapped = TEAM_MAP[tla]
+  // Use API group if provided, otherwise fall back to the static draw table
+  const resolvedGroup = group ?? TLA_GROUP[tla] ?? ''
   return {
-    // Use lowercase TLA as ID when known (matches mock data IDs like "bra", "mex").
-    // Falls back to numeric string only for unmapped teams.
     id:        mapped ? tla.toLowerCase() : String(raw.id),
     name:      mapped?.name      ?? raw.name,
     shortName: mapped?.shortName ?? raw.tla,
     code:      mapped?.code      ?? 'un',
-    group:     group ?? '',
+    group:     resolvedGroup,
   }
 }
 
@@ -137,7 +153,10 @@ function transformMatch(m: ApiMatch) {
 }
 
 function transformStanding(row: ApiStandingRow, group: string | null) {
-  const team = mapTeam(row.team, group)
+  const tla = row.team?.tla?.toUpperCase() ?? ''
+  // Use section group, then TLA lookup, then team's own group field
+  const resolvedGroup = group ?? TLA_GROUP[tla] ?? ''
+  const team = mapTeam(row.team, resolvedGroup)
   return {
     team,
     group:        team.group,
@@ -168,11 +187,12 @@ export const syncFootballData = onSchedule(
     timeZone: 'America/Sao_Paulo',
     timeoutSeconds: 30,
     memory: '256MiB',
+    secrets: ['FOOTBALL_DATA_TOKEN'],
   },
   async () => {
     const token = process.env.FOOTBALL_DATA_TOKEN
     if (!token) {
-      console.error('FOOTBALL_DATA_TOKEN not set')
+      console.error('[sync] FOOTBALL_DATA_TOKEN not set — configure via: firebase functions:secrets:set FOOTBALL_DATA_TOKEN')
       return
     }
 
@@ -186,7 +206,9 @@ export const syncFootballData = onSchedule(
       await db.doc('cache/matches').set({ data: matches, updatedAt: now })
 
       const hasLive = matches.some((m) => m.status === 'LIVE')
-      console.log(`[sync] matches: ${matches.length} | live: ${hasLive}`)
+      const hasFinished = matches.filter((m) => m.status === 'FINISHED').length
+      const hasScheduled = matches.filter((m) => m.status === 'SCHEDULED').length
+      console.log(`[sync] matches: ${matches.length} | live: ${hasLive} | finished: ${hasFinished} | scheduled: ${hasScheduled}`)
     } catch (err) {
       console.error('[sync] matches failed:', err)
     }
