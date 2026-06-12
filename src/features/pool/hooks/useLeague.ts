@@ -36,7 +36,7 @@ export interface League {
     scoring: LeagueScoring
   }
   matchScope: MatchScope
-  scopeTeamId?: string
+  scopeTeamIds?: string[]
   scopeMatchIds?: string[]
   createdAt: Date | null
 }
@@ -72,15 +72,16 @@ export interface MemberCustomTeam {
   playerNumber?: string
   showOnJersey?: boolean
   playerNameColor?: string
+  textScale?: number
   formation?: string
   kit?: {
     primaryColor: string
     secondaryColor: string
-    tertiaryColor: string
-    shortsColor?: string
     pattern: string
     collar: string
-    numberColor: string
+    outlineColor?: string
+    showOutline?: boolean
+    showCrestOnJersey?: boolean
   }
   crest?: {
     primaryColor: string
@@ -88,6 +89,9 @@ export interface MemberCustomTeam {
     shape: string
     pattern: string
     stars: number
+    showOutline?: boolean
+    outlineColor?: string
+    starsColor?: string
   }
 }
 
@@ -180,7 +184,7 @@ export function useLeagueAdmin(leagueId: string | undefined) {
     description: string
     scoring: LeagueScoring
     matchScope: MatchScope
-    scopeTeamId: string | null
+    scopeTeamIds: string[]
     scopeMatchIds: string[]
   }>) {
     if (!leagueId) return
@@ -191,7 +195,7 @@ export function useLeagueAdmin(leagueId: string | undefined) {
       if (updates.description !== undefined) patch['description'] = updates.description
       if (updates.scoring !== undefined) patch['config.scoring'] = updates.scoring
       if (updates.matchScope !== undefined) patch['matchScope'] = updates.matchScope
-      if (updates.scopeTeamId !== undefined) patch['scopeTeamId'] = updates.scopeTeamId
+      if (updates.scopeTeamIds !== undefined) patch['scopeTeamIds'] = updates.scopeTeamIds
       if (updates.scopeMatchIds !== undefined) patch['scopeMatchIds'] = updates.scopeMatchIds
       await updateDoc(doc(db, 'leagues', leagueId), patch)
     } finally { setSaving(false) }
@@ -285,7 +289,7 @@ export function useLeagueDetails(leagueId: string | undefined) {
         isPublic: d.isPublic ?? false,
         config: { scoring: d.config?.scoring ?? { winner: 3, draw: 1, exactScore: 5 } },
         matchScope: d.matchScope ?? 'all',
-        scopeTeamId: d.scopeTeamId ?? undefined,
+        scopeTeamIds: d.scopeTeamIds ?? (d.scopeTeamId ? [d.scopeTeamId] : []),
         scopeMatchIds: d.scopeMatchIds ?? [],
         createdAt: d.createdAt?.toDate?.() ?? null,
       })

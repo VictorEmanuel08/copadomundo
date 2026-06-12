@@ -6,29 +6,29 @@ Aplicativo web completo para acompanhar a Copa do Mundo FIFA 2026. Combine class
 
 ## 📸 Visão Geral
 
-| Feature | Descrição |
-|---|---|
-| 📅 **Calendário** | Todos os jogos com data, hora, estádio e placar ao vivo |
-| 📊 **Classificação** | Tabela de grupos atualizada automaticamente |
-| 🏟️ **Chaveamento** | Bracket interativo das fases eliminatórias |
-| 🎯 **Bolão** | Ligas privadas com palpites, ranking e comentários por jogo |
-| 🏆 **Palpite no Campeão** | Apostas no campeão com bônus de 30 pontos |
-| 👕 **Seleção Virtual** | Crie seu time com uniforme, escudo, formação e jogador |
-| 🔴 **Ao Vivo** | Placar em tempo real durante os jogos |
+| Feature                   | Descrição                                                   |
+| ------------------------- | ----------------------------------------------------------- |
+| 📅 **Calendário**         | Todos os jogos com data, hora, estádio e placar ao vivo     |
+| 📊 **Classificação**      | Tabela de grupos atualizada automaticamente                 |
+| 🏟️ **Chaveamento**        | Bracket interativo das fases eliminatórias                  |
+| 🎯 **Bolão**              | Ligas privadas com palpites, ranking e comentários por jogo |
+| 🏆 **Palpite no Campeão** | Apostas no campeão com bônus de 30 pontos                   |
+| 👕 **Seleção Virtual**    | Crie seu time com uniforme, escudo, formação e jogador      |
+| 🔴 **Ao Vivo**            | Placar em tempo real durante os jogos                       |
 
 ---
 
 ## 🛠️ Stack Técnica
 
-| Camada | Tecnologia |
-|---|---|
-| Frontend | React 19 + TypeScript + Vite |
-| UI | Tailwind CSS 4 + shadcn/ui + Radix UI |
-| Roteamento | React Router v7 |
-| Backend / Auth | Firebase (Firestore + Authentication) |
+| Camada         | Tecnologia                                                          |
+| -------------- | ------------------------------------------------------------------- |
+| Frontend       | React 19 + TypeScript + Vite                                        |
+| UI             | Tailwind CSS 4 + shadcn/ui + Radix UI                               |
+| Roteamento     | React Router v7                                                     |
+| Backend / Auth | Firebase (Firestore + Authentication)                               |
 | API de futebol | [football-data.org](https://www.football-data.org) (plano gratuito) |
-| Cloud Function | Firebase Functions v2 (Node.js 22) |
-| Cache | Firestore como camada de cache intermediária |
+| Cloud Function | Firebase Functions v2 (Node.js 22)                                  |
+| Cache          | Firestore como camada de cache intermediária                        |
 
 ---
 
@@ -149,12 +149,12 @@ Sem o cache, cada usuário que abre o app faria suas próprias chamadas à API. 
 
 A Cloud Function precisa fazer chamadas HTTP externas (para a football-data.org), o que **requer o plano Blaze do Firebase**. O plano Blaze tem uma camada gratuita equivalente ao plano Spark — dentro dos limites abaixo, não há cobrança:
 
-| Recurso | Gratuito no Blaze/mês |
-|---|---|
-| Invocações de função | 2.000.000 |
-| Nossa função (1/min) | ~43.200 |
-| Networking de saída | 5 GB |
-| Nossa função (3 KB/call) | < 5 MB |
+| Recurso                  | Gratuito no Blaze/mês |
+| ------------------------ | --------------------- |
+| Invocações de função     | 2.000.000             |
+| Nossa função (1/min)     | ~43.200               |
+| Networking de saída      | 5 GB                  |
+| Nossa função (3 KB/call) | < 5 MB                |
 
 **→ Custo real esperado: R$ 0,00**
 
@@ -164,7 +164,7 @@ A Cloud Function precisa fazer chamadas HTTP externas (para a football-data.org)
 
 Acesse o [Console Firebase do projeto](https://console.firebase.google.com/project/copadomundo-2026/usage/details) → clique em "Fazer upgrade" → associe um cartão de crédito.
 
-**2. Corrigir permissão do Cloud Build** *(necessário uma única vez em projetos novos)*
+**2. Corrigir permissão do Cloud Build** _(necessário uma única vez em projetos novos)_
 
 ```bash
 gcloud projects add-iam-policy-binding copadomundo-2026 \
@@ -209,20 +209,21 @@ Cada usuário pode criar ou entrar em ligas privadas com um **código de convite
 - **Ranking em tempo real** — classificação atualizada conforme os jogos terminam
 - **Streak counter** — 🔥 sequência de palpites certos consecutivos
 - **Head-to-Head** — comparativo direto de palpites entre dois participantes
-- **Exportar ranking** — gera imagem PNG para compartilhar no grupo do WhatsApp
+- **Exportar ranking** — gera imagem PNG para compartilhar
 
 ### Sistema de pontuação (configurável pelo admin da liga)
 
-| Acerto | Padrão |
-|---|---|
-| 🎯 Placar exato | 5 pts |
-| ✅ Acertou o vencedor | 3 pts |
-| 🤝 Acertou o empate | 1 pt |
-| 🏆 Campeão correto | 30 pts |
+| Acerto                | Padrão |
+| --------------------- | ------ |
+| 🎯 Placar exato       | 5 pts  |
+| ✅ Acertou o vencedor | 3 pts  |
+| 🤝 Acertou o empate   | 1 pt   |
+| 🏆 Campeão correto    | 30 pts |
 
 ### Escopo de jogos
 
 O admin pode configurar quais jogos fazem parte da liga:
+
 - **Todos** — todos os 104 jogos da Copa
 - **Por seleção** — apenas jogos de uma ou mais seleções específicas
 - **Personalizado** — o admin escolhe jogo a jogo
@@ -245,14 +246,14 @@ A seleção aparece no perfil do participante dentro do bolão.
 
 ## 🔒 Regras de Segurança (Firestore)
 
-| Coleção | Leitura | Escrita |
-|---|---|---|
-| `cache/*` | Pública | Apenas Cloud Function (Admin SDK) |
-| `leagues/*` | Membros autenticados | Dono da liga |
-| `leagues/*/predictions` | Membros | Próprio usuário |
-| `leagues/*/champion_predictions` | Membros | Próprio usuário |
-| `customTeams/*` | Autenticados | Próprio dono |
-| `users/*` | Próprio usuário | Próprio usuário |
+| Coleção                          | Leitura              | Escrita                           |
+| -------------------------------- | -------------------- | --------------------------------- |
+| `cache/*`                        | Pública              | Apenas Cloud Function (Admin SDK) |
+| `leagues/*`                      | Membros autenticados | Dono da liga                      |
+| `leagues/*/predictions`          | Membros              | Próprio usuário                   |
+| `leagues/*/champion_predictions` | Membros              | Próprio usuário                   |
+| `customTeams/*`                  | Autenticados         | Próprio dono                      |
+| `users/*`                        | Próprio usuário      | Próprio usuário                   |
 
 ---
 
@@ -288,11 +289,11 @@ firebase deploy --only functions,firestore:rules
 
 ### Endpoints usados
 
-| Endpoint | Cache | Frequência |
-|---|---|---|
-| `GET /competitions/WC/matches` | `cache/matches` | A cada 1 min |
-| `GET /competitions/WC/standings` | `cache/standings` | A cada 1 min |
-| `GET /competitions/WC/matches?stage=KNOCKOUT` | `cache/bracket` | A cada 1 min |
+| Endpoint                                      | Cache             | Frequência   |
+| --------------------------------------------- | ----------------- | ------------ |
+| `GET /competitions/WC/matches`                | `cache/matches`   | A cada 1 min |
+| `GET /competitions/WC/standings`              | `cache/standings` | A cada 1 min |
+| `GET /competitions/WC/matches?stage=KNOCKOUT` | `cache/bracket`   | A cada 1 min |
 
 ### O que é "1 call"?
 
@@ -319,4 +320,4 @@ Para evitar erros de CORS ao chamar a API em desenvolvimento, o Vite redireciona
 **VM CODES** — Victor Emanuel  
 [github.com/VictorEmanuel08](https://github.com/VictorEmanuel08)
 
-*Projeto desenvolvido para a Copa do Mundo FIFA 2026 🌍*
+_Projeto desenvolvido para a Copa do Mundo FIFA 2026 🌍_
