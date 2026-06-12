@@ -1,11 +1,34 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
 import { Footer } from './Footer'
+import { useAuthStore } from '@/features/auth/store/authStore'
+import { REDIRECT_AFTER_LOGIN_KEY } from '@/features/auth/components/AuthGuard'
+
+function LoginRedirectHandler() {
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
+  const prevUid = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (user && prevUid.current === null) {
+      const redirect = sessionStorage.getItem(REDIRECT_AFTER_LOGIN_KEY)
+      if (redirect) {
+        sessionStorage.removeItem(REDIRECT_AFTER_LOGIN_KEY)
+        navigate(redirect, { replace: true })
+      }
+    }
+    prevUid.current = user?.uid ?? null
+  }, [user, navigate])
+
+  return null
+}
 
 export function AppLayout() {
   return (
     <div className="flex min-h-svh flex-col bg-background">
+      <LoginRedirectHandler />
       <Header />
       <main className="mx-auto w-full max-w-7xl flex-1 px-3 pb-24 pt-4 sm:px-4 md:pb-8 lg:px-6">
         <Outlet />
