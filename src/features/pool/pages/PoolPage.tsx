@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Users, Link2, LogIn, Lock, AlertCircle,
-  ChevronRight, Crown, Loader2, Check,
+  ChevronRight, Crown, Loader2, Check, Radio,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LegalDisclaimer } from '../components/LegalDisclaimer'
@@ -37,6 +37,11 @@ function StatBar({ homeWinPct, drawPct, awayWinPct }: { homeWinPct: number; draw
   )
 }
 
+function isMatchLocked(match: Match): boolean {
+  if (match.status !== 'SCHEDULED') return true
+  return new Date(match.date).getTime() - Date.now() < 10 * 60 * 1000
+}
+
 function PublicMatchCard({
   match,
   stats,
@@ -52,6 +57,8 @@ function PublicMatchCard({
   const [saved, setSaved] = useState(false)
 
   const isDone = match.status === 'FINISHED'
+  const isLive = match.status === 'LIVE'
+  const locked = isMatchLocked(match)
 
   const dateStr = new Date(match.date).toLocaleDateString('pt-BR', {
     weekday: 'short', day: '2-digit', month: 'short',
@@ -74,15 +81,28 @@ function PublicMatchCard({
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+    <div className={cn(
+      'rounded-2xl border bg-card overflow-hidden',
+      isLive ? 'border-red-500/40' : isDone ? 'border-border/40 bg-muted/10' : 'border-border',
+    )}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/40">
-        <span className="text-[10px] font-semibold text-muted-foreground">{dateStr}</span>
-        {stats.total > 0 && (
-          <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1">
-            <Users size={9} /> {stats.total} palpite{stats.total !== 1 ? 's' : ''}
-          </span>
-        )}
+        <span className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
+          {isLive && <Radio size={9} className="animate-pulse text-red-500" />}
+          {isLive ? <span className="text-red-500 font-black">AO VIVO</span> : dateStr}
+        </span>
+        <div className="flex items-center gap-2">
+          {locked && !isDone && !isLive && (
+            <span className="text-[9px] font-bold text-amber-500/80 flex items-center gap-0.5">
+              <Lock size={8} /> Fechado
+            </span>
+          )}
+          {stats.total > 0 && (
+            <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Users size={9} /> {stats.total} palpite{stats.total !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-3 space-y-3">
@@ -96,9 +116,16 @@ function PublicMatchCard({
 
           {/* Score inputs / result */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {isDone ? (
-              <span className="text-sm font-black text-foreground tabular-nums">
-                {match.score.home ?? '–'} × {match.score.away ?? '–'}
+            {(isDone || isLive) && match.score.home !== null ? (
+              <span className={cn(
+                'text-sm font-black tabular-nums px-2 py-1 rounded-lg border',
+                isLive ? 'text-red-400 bg-red-500/10 border-red-500/30' : 'text-foreground bg-muted/40 border-border/30',
+              )}>
+                {match.score.home} – {match.score.away}
+              </span>
+            ) : locked ? (
+              <span className="text-xs text-muted-foreground px-2 font-bold">
+                {stats.myPrediction ? `${stats.myPrediction.homeScore}×${stats.myPrediction.awayScore}` : '–'}
               </span>
             ) : user ? (
               <div className="flex items-center gap-1.5">
@@ -149,7 +176,7 @@ function PublicMatchCard({
         )}
 
         {/* Save button */}
-        {user && !isDone && (
+        {user && !isDone && !isLive && !locked && (
           <Button
             size="sm"
             className={cn(
@@ -172,13 +199,55 @@ function PublicMatchCard({
           </Button>
         )}
 
-        {!user && !isDone && (
+        {user && !isDone && !isLive && locked && !stats.myPrediction && (
+          <p className="text-[10px] text-center text-muted-foreground/50 py-0.5">
+            Palpites fecharam 10 min antes
+          </p>
+        )}
+
+        {!user && !isDone && !locked && (
           <p className="text-[10px] text-center text-muted-foreground">
             <button onClick={signInWithGoogle} className="text-primary font-bold hover:underline">
               Faça login
             </button>{' '}para enviar seu palpite
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Past Matches Section ────────────────────────────────────────────────
+
+const PAST_PAGE_SIZE = 6
+
+function PastMatchesSection({ matches, getMatchStats, user }: {
+  matches: Match[]
+  getMatchStats: (matchId: string) => MatchStats
+  user: { uid: string; name: string | null; photoURL: string | null } | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? matches : matches.slice(0, PAST_PAGE_SIZE)
+
+  return (
+    <div className="space-y-3 pt-2 border-t border-border/40">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+          Jogos Encerrados
+          <span className="text-muted-foreground/50">· {matches.length}</span>
+        </p>
+        {matches.length > PAST_PAGE_SIZE && (
+          <button onClick={() => setExpanded(v => !v)}
+            className="text-[10px] font-bold text-primary hover:underline">
+            {expanded ? 'Ver menos' : `Ver todos (${matches.length})`}
+          </button>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {visible.map((m) => (
+          <PublicMatchCard key={m.id} match={m} stats={getMatchStats(m.id)} user={user} />
+        ))}
       </div>
     </div>
   )
@@ -197,6 +266,13 @@ export default function PoolPage() {
   const [pendingPath, setPendingPath] = useState<string | null>(null)
   const [showAllMatches, setShowAllMatches] = useState(false)
 
+  const liveMatches = useMemo(() => {
+    if (!matches) return []
+    return matches
+      .filter((m) => m.status === 'LIVE')
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }, [matches])
+
   const upcomingMatches = useMemo(() => {
     if (!matches) return []
     return matches
@@ -204,7 +280,15 @@ export default function PoolPage() {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   }, [matches])
 
-  const visibleMatches = showAllMatches ? upcomingMatches : upcomingMatches.slice(0, 6)
+  const finishedMatches = useMemo(() => {
+    if (!matches) return []
+    return matches
+      .filter((m) => m.status === 'FINISHED')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [matches])
+
+  const activeMatches = useMemo(() => [...liveMatches, ...upcomingMatches], [liveMatches, upcomingMatches])
+  const visibleMatches = showAllMatches ? activeMatches : activeMatches.slice(0, 6)
 
   const handleAction = (path: string) => {
     if (!user) {
@@ -338,31 +422,52 @@ export default function PoolPage() {
           <div className="flex justify-center py-10">
             <Loader2 size={22} className="animate-spin text-muted-foreground/40" />
           </div>
-        ) : upcomingMatches.length === 0 ? (
+        ) : activeMatches.length === 0 && finishedMatches.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
-            Nenhum jogo disponível para palpitar.
+            Nenhum jogo disponível.
           </div>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {visibleMatches.map((m) => (
-                <PublicMatchCard
-                  key={m.id}
-                  match={m}
-                  stats={getMatchStats(m.id)}
-                  user={user}
-                />
-              ))}
-            </div>
-            {upcomingMatches.length > 6 && (
-              <button
-                onClick={() => setShowAllMatches((v) => !v)}
-                className="w-full py-2.5 text-xs font-bold text-primary hover:underline"
-              >
-                {showAllMatches
-                  ? 'Mostrar menos'
-                  : `Ver todos os ${upcomingMatches.length} jogos`}
-              </button>
+            {/* Jogos ao vivo + próximos */}
+            {activeMatches.length > 0 && (
+              <>
+                {liveMatches.length > 0 && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                    </span>
+                    <p className="text-[11px] font-black uppercase tracking-wider text-red-500">
+                      Ao Vivo · {liveMatches.length} jogo{liveMatches.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {visibleMatches.map((m) => (
+                    <PublicMatchCard
+                      key={m.id}
+                      match={m}
+                      stats={getMatchStats(m.id)}
+                      user={user}
+                    />
+                  ))}
+                </div>
+                {activeMatches.length > 6 && (
+                  <button
+                    onClick={() => setShowAllMatches((v) => !v)}
+                    className="w-full py-2.5 text-xs font-bold text-primary hover:underline"
+                  >
+                    {showAllMatches
+                      ? 'Mostrar menos'
+                      : `Ver todos os ${activeMatches.length} jogos`}
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Jogos encerrados */}
+            {finishedMatches.length > 0 && (
+              <PastMatchesSection matches={finishedMatches} getMatchStats={getMatchStats} user={user} />
             )}
           </>
         )}

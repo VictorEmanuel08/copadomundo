@@ -78,8 +78,16 @@ service cloud.firestore {
 
       match /predictions/{predId} {
         allow read: if isMember(leagueId) || isLeagueOwner(leagueId);
-        allow create: if isMember(leagueId) && request.resource.data.userId == request.auth.uid;
-        allow update: if isMember(leagueId) && resource.data.userId == request.auth.uid;
+        // Cria/atualiza palpite somente se o jogo ainda não começou
+        // (matchLockedAt é o timestamp que o frontend envia; regra usa request.time)
+        allow create: if isMember(leagueId)
+          && request.resource.data.userId == request.auth.uid
+          && (!('matchLockedAt' in request.resource.data)
+              || request.time < request.resource.data.matchLockedAt);
+        allow update: if isMember(leagueId)
+          && resource.data.userId == request.auth.uid
+          && (!('matchLockedAt' in request.resource.data)
+              || request.time < request.resource.data.matchLockedAt);
         // Owner pode deletar qualquer palpite (necessário para excluir a liga)
         allow delete: if isAuth() && (resource.data.userId == request.auth.uid || isLeagueOwner(leagueId));
       }
