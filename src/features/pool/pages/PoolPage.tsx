@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, Users, Link2, LogIn, Lock, AlertCircle,
@@ -263,6 +263,13 @@ export default function PoolPage() {
   const { getMatchStats, totalParticipants, totalPredictions, loading: loadingPool } = usePublicPool()
 
   const [showLoginModal, setShowLoginModal] = useState(false)
+
+  useEffect(() => {
+    if (showLoginModal) {
+      document.body.style.overflow = "hidden"
+      return () => { document.body.style.overflow = "" }
+    }
+  }, [showLoginModal])
   const [pendingPath, setPendingPath] = useState<string | null>(null)
   const [showAllMatches, setShowAllMatches] = useState(false)
 

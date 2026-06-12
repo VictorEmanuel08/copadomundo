@@ -258,16 +258,16 @@ function PredictionRow({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col space-y-2 p-2.5">
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-1 flex-col space-y-2 p-2">
+        <div className="flex items-center gap-1">
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-            <span className="truncate text-xs leading-none font-black">
+            <span className="truncate text-[11px] leading-none font-black">
               {match.homeTeam.shortName}
             </span>
             <TeamFlag
               code={match.homeTeam.code}
               name={match.homeTeam.name}
-              size={18}
+              size={16}
             />
           </div>
 
@@ -308,9 +308,9 @@ function PredictionRow({
             <TeamFlag
               code={match.awayTeam.code}
               name={match.awayTeam.name}
-              size={18}
+              size={16}
             />
-            <span className="truncate text-xs leading-none font-black">
+            <span className="truncate text-[11px] leading-none font-black">
               {match.awayTeam.shortName}
             </span>
           </div>
@@ -340,7 +340,7 @@ function PredictionRow({
           </p>
         )}
 
-        <div className="mt-auto flex gap-1 pt-0.5">
+        <div className="flex gap-1 pt-0.5">
           {!isDone && !locked && (
             <>
               <Button
@@ -1357,6 +1357,18 @@ export default function LeaguePage() {
   const customTeams = useMembersCustomTeams(members.map((m) => m.userId))
   const champions = useChampionPrediction(leagueId)
 
+  const champModalOpen =
+    !!user && !loading && !champModalDismissed &&
+    !champions.find((c) => c.userId === user.uid)
+
+  useEffect(() => {
+    const open = !!selectedMember || champModalOpen
+    if (open) {
+      document.body.style.overflow = "hidden"
+      return () => { document.body.style.overflow = "" }
+    }
+  }, [selectedMember, champModalOpen])
+
   const isOwner = user?.uid === league?.ownerId
 
   const scopedMatches = useMemo(() => {
@@ -1516,8 +1528,8 @@ export default function LeaguePage() {
         champions.length >= 0 &&
         !champions.find((c) => c.userId === user.uid) &&
         !champModalDismissed && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4">
-            <div className="flex w-full max-w-sm flex-col gap-0 overflow-hidden rounded-t-3xl border border-amber-500/30 bg-card shadow-2xl sm:rounded-3xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className="flex w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-amber-500/30 bg-card shadow-2xl">
               <div className="bg-amber-500/10 px-5 pt-6 pb-4 text-center">
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-amber-500">
                   <Trophy size={28} />
@@ -1622,7 +1634,7 @@ export default function LeaguePage() {
                   · {upcomingMatches.length}
                 </span>
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:items-start">
                 {upcomingMatches.slice(0, upcomingLimit).map((m) => (
                   <PredictionRow
                     key={m.id}
@@ -1654,7 +1666,7 @@ export default function LeaguePage() {
                   · {finishedMatches.length}
                 </span>
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:items-start">
                 {finishedMatches.slice(0, finishedLimit).map((m) => (
                   <PredictionRow
                     key={m.id}

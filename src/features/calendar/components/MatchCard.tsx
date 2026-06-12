@@ -82,13 +82,6 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
         compact ? 'p-3' : 'p-4',
       )}
     >
-      {isLive && (
-        <div className="absolute right-3 top-3 flex items-center gap-1.5">
-          <span className="h-2 w-2 animate-ping rounded-full bg-red-500" />
-          <span className="text-xs font-bold uppercase tracking-wide text-red-500">Ao vivo</span>
-        </div>
-      )}
-
       {!compact && (
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {match.group && (
@@ -102,16 +95,25 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
           >
             {PHASE_LABELS[match.phase]}
           </Badge>
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-            {showDate && (
+          <div className="ml-auto flex items-center gap-1.5 text-xs font-semibold">
+            {isLive ? (
+              <span className="flex items-center gap-1.5 font-black text-red-500">
+                <span className="h-2 w-2 animate-ping rounded-full bg-red-500" />
+                Ao vivo
+              </span>
+            ) : (
               <>
-                <Calendar size={11} className="shrink-0" />
-                <span className="text-foreground/80 font-bold">{dateFormatted}</span>
-                <span className="opacity-40 font-normal">•</span>
+                {showDate && (
+                  <>
+                    <Calendar size={11} className="shrink-0 text-muted-foreground" />
+                    <span className="text-foreground/80 font-bold">{dateFormatted}</span>
+                    <span className="opacity-40 font-normal text-muted-foreground">•</span>
+                  </>
+                )}
+                <Clock size={11} className="shrink-0 text-muted-foreground" />
+                <span className="text-muted-foreground">{timeStr}</span>
               </>
             )}
-            <Clock size={11} className="shrink-0" />
-            <span>{timeStr}</span>
           </div>
         </div>
       )}
@@ -157,12 +159,21 @@ export function MatchCard({ match, compact = false, showDate = false }: MatchCar
       </div>
 
       {compact && (
-        <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground font-semibold">
-          <Calendar size={10} className="shrink-0" />
-          <span className="text-foreground/75 font-bold">{dateFormatted}</span>
-          <span className="opacity-40 font-normal">•</span>
-          <Clock size={10} className="shrink-0" />
-          <span>{timeStr}</span>
+        <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[10px] font-semibold">
+          {isLive ? (
+            <span className="flex items-center gap-1 font-black text-red-500">
+              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-red-500" />
+              Ao vivo
+            </span>
+          ) : (
+            <>
+              <Calendar size={10} className="shrink-0 text-muted-foreground" />
+              <span className="text-foreground/75 font-bold">{dateFormatted}</span>
+              <span className="opacity-40 font-normal text-muted-foreground">•</span>
+              <Clock size={10} className="shrink-0 text-muted-foreground" />
+              <span className="text-muted-foreground">{timeStr}</span>
+            </>
+          )}
         </div>
       )}
 
