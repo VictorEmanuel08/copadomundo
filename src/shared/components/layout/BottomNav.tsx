@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { BarChart2, Calendar, GitMerge, Heart, Trophy } from 'lucide-react'
+import { BarChart2, Calendar, GitMerge, Heart, Trophy, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Calendário', icon: Calendar },
+  { to: '/', label: 'Agenda', icon: Calendar },
   { to: '/standings', label: 'Grupos', icon: BarChart2 },
   { to: '/bracket', label: 'Chave', icon: GitMerge },
+  { to: '/simulador', label: 'Simular', icon: Wand2 },
   { to: '/pool', label: 'Bolão', icon: Trophy },
   { to: '/my-team', label: 'Seleção', icon: Heart },
 ]

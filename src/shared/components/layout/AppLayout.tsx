@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
 import { Footer } from './Footer'
@@ -25,10 +25,19 @@ function LoginRedirectHandler() {
   return null
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [pathname])
+  return null
+}
+
 export function AppLayout() {
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <LoginRedirectHandler />
+      <ScrollToTop />
       <Header />
       <main className="mx-auto w-full max-w-7xl flex-1 px-3 pb-24 pt-4 sm:px-4 md:pb-8 lg:px-6">
         <Outlet />
