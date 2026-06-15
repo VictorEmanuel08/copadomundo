@@ -262,7 +262,20 @@ export default function PoolPage() {
   const { leagues: myLeagues, loading: loadingLeagues } = useMyLeagues()
   const { getMatchStats, totalParticipants, totalPredictions, loading: loadingPool } = usePublicPool()
 
+  const [activeTab, setActiveTab] = useState<'public' | 'private'>('public')
   const [showLoginModal, setShowLoginModal] = useState(false)
+
+  function switchTab(tab: 'public' | 'private') {
+    setActiveTab(tab)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
+
+  // Se o usuário já tem liga privada, abre direto nela
+  useEffect(() => {
+    if (!loadingLeagues && myLeagues.length > 0) {
+      setActiveTab('private')
+    }
+  }, [loadingLeagues, myLeagues.length])
 
   useEffect(() => {
     if (showLoginModal) {
@@ -320,7 +333,7 @@ export default function PoolPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Visitor Banner */}
       {!user && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl shadow-sm">
@@ -350,7 +363,7 @@ export default function PoolPage() {
         <div className="relative z-10">
           <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Copa do Mundo 2026</p>
           <h1 className="mt-0.5 text-2xl font-black tracking-tight sm:text-3xl">Bolão</h1>
-          <p className="mt-1 text-sm text-white/80">Faça seus palpites e dispute com amigos</p>
+          <p className="mt-1 text-sm text-white/80">Palpites públicos ou liga privada com amigos</p>
           {!loadingPool && totalParticipants > 0 && (
             <div className="mt-3 flex gap-4">
               <div>
@@ -371,163 +384,215 @@ export default function PoolPage() {
         <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-6xl opacity-20 select-none">🏆</span>
       </div>
 
-      <LegalDisclaimer />
-
-      {/* Action cards */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button onClick={() => handleAction('/pool/league/new')} className="w-full text-left focus:outline-none">
-          <div className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-primary shadow-sm relative">
-              <Plus size={20} className="text-white" />
-              {!user && <span className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5"><Lock size={8} className="text-muted-foreground" /></span>}
-            </div>
-            <div>
-              <p className="font-bold text-sm flex items-center gap-1.5">
-                Criar Liga Privada
-                {!user && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-bold">🔒 Login</span>}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Convide amigos com um código exclusivo</p>
-            </div>
-          </div>
+      {/* ─── Tabs ──────────────────────────────────────────────────────── */}
+      <div className="flex rounded-xl border border-border bg-muted/40 p-1 gap-1">
+        <button
+          onClick={() => switchTab('public')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all',
+            activeTab === 'public'
+              ? 'bg-card shadow text-foreground border border-border/60'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Users size={14} />
+          Bolão Público
+          {liveMatches.length > 0 && (
+            <span className="flex h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          )}
         </button>
-
-        <button onClick={() => handleAction('/pool/join')} className="w-full text-left focus:outline-none">
-          <div className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-success/30 hover:shadow-lg hover:shadow-success/10 cursor-pointer">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-success/15 relative">
-              <Link2 size={20} className="text-success" />
-              {!user && <span className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5"><Lock size={8} className="text-muted-foreground" /></span>}
-            </div>
-            <div>
-              <p className="font-bold text-sm flex items-center gap-1.5">
-                Entrar em Liga
-                {!user && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-bold">🔒 Login</span>}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Use um código de convite</p>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* ─── Minhas Ligas ─────────────────────────────────────────────── */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold text-sm">Minhas Ligas Privadas</h2>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs font-bold"
-            onClick={() => handleAction('/pool/league/new')}>
-            <Plus size={12} /> Nova liga
-          </Button>
-        </div>
-
-        {!user ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm font-semibold text-muted-foreground">Faça login para ver suas ligas.</p>
-          </div>
-        ) : loadingLeagues ? (
-          <div className="flex justify-center py-10">
-            <Loader2 size={20} className="animate-spin text-muted-foreground/40" />
-          </div>
-        ) : myLeagues.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
-            <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-sm font-semibold text-muted-foreground">Você ainda não tem ligas privadas.</p>
-            <p className="text-xs text-muted-foreground mt-1">Crie uma liga ou entre com um código de convite.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {myLeagues.map((lg) => (
-              <button
-                key={lg.leagueId}
-                onClick={() => navigate(`/pool/league/${lg.leagueId}`)}
-                className="w-full text-left flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 hover:shadow transition-all"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                  {lg.role === 'owner'
-                    ? <Crown size={16} className="text-amber-500" />
-                    : <Users size={16} className="text-primary" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate">{lg.name}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{lg.inviteCode}</p>
-                </div>
-                <ChevronRight size={15} className="text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ─── Bolão da Galera ───────────────────────────────────────────── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-border/40 pb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🏆</span>
-            <div>
-              <p className="font-black text-sm">Bolão da Galera</p>
-              <p className="text-[10px] text-muted-foreground">Público · todos os usuários participam</p>
-            </div>
-          </div>
-          {!loadingPool && totalPredictions > 0 && (
-            <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-1 rounded-full flex items-center gap-1">
-              <Users size={10} /> {totalParticipants} participantes
+        <button
+          onClick={() => switchTab('private')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all',
+            activeTab === 'private'
+              ? 'bg-card shadow text-foreground border border-border/60'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Lock size={14} />
+          Ligas Privadas
+          {myLeagues.length > 0 && (
+            <span className="ml-0.5 bg-primary/15 text-primary text-[10px] font-black px-1.5 py-0.5 rounded-full">
+              {myLeagues.length}
             </span>
           )}
-        </div>
-
-        {loadingPool ? (
-          <div className="flex justify-center py-10">
-            <Loader2 size={22} className="animate-spin text-muted-foreground/40" />
-          </div>
-        ) : activeMatches.length === 0 && finishedMatches.length === 0 ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">
-            Nenhum jogo disponível.
-          </div>
-        ) : (
-          <>
-            {/* Jogos ao vivo + próximos */}
-            {activeMatches.length > 0 && (
-              <>
-                {liveMatches.length > 0 && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="flex h-2 w-2 relative">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                    </span>
-                    <p className="text-[11px] font-black uppercase tracking-wider text-red-500">
-                      Ao Vivo · {liveMatches.length} jogo{liveMatches.length !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {visibleMatches.map((m) => (
-                    <PublicMatchCard
-                      key={m.id}
-                      match={m}
-                      stats={getMatchStats(m.id)}
-                      user={user}
-                    />
-                  ))}
-                </div>
-                {activeMatches.length > 6 && (
-                  <button
-                    onClick={() => setShowAllMatches((v) => !v)}
-                    className="w-full py-2.5 text-xs font-bold text-primary hover:underline"
-                  >
-                    {showAllMatches
-                      ? 'Mostrar menos'
-                      : `Ver todos os ${activeMatches.length} jogos`}
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* Jogos encerrados */}
-            {finishedMatches.length > 0 && (
-              <PastMatchesSection matches={finishedMatches} getMatchStats={getMatchStats} user={user} />
-            )}
-          </>
-        )}
+        </button>
       </div>
+
+      {/* ─── Tab: Bolão Público ────────────────────────────────────────── */}
+      {activeTab === 'public' && (
+        <div className="space-y-4">
+          {/* CTA liga privada — só aparece se o usuário ainda não tem nenhuma */}
+          {user && !loadingLeagues && myLeagues.length === 0 && (
+            <button
+              onClick={() => switchTab('private')}
+              className="w-full flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left hover:bg-primary/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl gradient-primary">
+                  <Lock size={16} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">Quer jogar só com amigos?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Crie uma liga privada com código de convite</p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+            </button>
+          )}
+
+          {/* Nota discreta quando já tem liga */}
+          {!user || myLeagues.length > 0 ? (
+            <p className="text-[11px] text-muted-foreground/70 text-center">
+              Bolão público · todos os usuários participam juntos ·{' '}
+              <button onClick={() => switchTab('private')} className="font-bold text-primary hover:underline">
+                ver ligas privadas
+              </button>
+            </p>
+          ) : null}
+
+          <LegalDisclaimer />
+
+          {loadingPool ? (
+            <div className="flex justify-center py-10">
+              <Loader2 size={22} className="animate-spin text-muted-foreground/40" />
+            </div>
+          ) : activeMatches.length === 0 && finishedMatches.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Nenhum jogo disponível.
+            </div>
+          ) : (
+            <>
+              {activeMatches.length > 0 && (
+                <>
+                  {liveMatches.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                      </span>
+                      <p className="text-[11px] font-black uppercase tracking-wider text-red-500">
+                        Ao Vivo · {liveMatches.length} jogo{liveMatches.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {visibleMatches.map((m) => (
+                      <PublicMatchCard key={m.id} match={m} stats={getMatchStats(m.id)} user={user} />
+                    ))}
+                  </div>
+                  {activeMatches.length > 6 && (
+                    <button
+                      onClick={() => setShowAllMatches((v) => !v)}
+                      className="w-full py-2.5 text-xs font-bold text-primary hover:underline"
+                    >
+                      {showAllMatches ? 'Mostrar menos' : `Ver todos os ${activeMatches.length} jogos`}
+                    </button>
+                  )}
+                </>
+              )}
+              {finishedMatches.length > 0 && (
+                <PastMatchesSection matches={finishedMatches} getMatchStats={getMatchStats} user={user} />
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ─── Tab: Ligas Privadas ───────────────────────────────────────── */}
+      {activeTab === 'private' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-primary">
+            <p className="font-bold">O que é uma Liga Privada?</p>
+            <p className="mt-0.5 text-primary/70">
+              Você cria um grupo exclusivo com amigos usando um código de convite. Só quem tem o código participa — ranking separado do bolão público.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button onClick={() => handleAction('/pool/league/new')} className="w-full text-left focus:outline-none">
+              <div className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10 cursor-pointer">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl gradient-primary shadow-sm relative">
+                  <Plus size={20} className="text-white" />
+                  {!user && <span className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5"><Lock size={8} className="text-muted-foreground" /></span>}
+                </div>
+                <div>
+                  <p className="font-bold text-sm flex items-center gap-1.5">
+                    Criar Liga
+                    {!user && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-bold">🔒 Login</span>}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Gere um código e convide amigos</p>
+                </div>
+              </div>
+            </button>
+
+            <button onClick={() => handleAction('/pool/join')} className="w-full text-left focus:outline-none">
+              <div className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-success/30 hover:shadow-lg hover:shadow-success/10 cursor-pointer">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-success/15 relative">
+                  <Link2 size={20} className="text-success" />
+                  {!user && <span className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5"><Lock size={8} className="text-muted-foreground" /></span>}
+                </div>
+                <div>
+                  <p className="font-bold text-sm flex items-center gap-1.5">
+                    Entrar com Código
+                    {!user && <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-bold">🔒 Login</span>}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Use um código de convite</p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-bold text-sm">Minhas Ligas</h2>
+              <Button variant="ghost" size="sm" className="gap-1 text-xs font-bold"
+                onClick={() => handleAction('/pool/league/new')}>
+                <Plus size={12} /> Nova liga
+              </Button>
+            </div>
+
+            {!user ? (
+              <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+                <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm font-semibold text-muted-foreground">Faça login para ver suas ligas.</p>
+              </div>
+            ) : loadingLeagues ? (
+              <div className="flex justify-center py-10">
+                <Loader2 size={20} className="animate-spin text-muted-foreground/40" />
+              </div>
+            ) : myLeagues.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+                <Users size={28} className="mx-auto mb-2 text-muted-foreground/30" />
+                <p className="text-sm font-semibold text-muted-foreground">Você ainda não tem ligas privadas.</p>
+                <p className="text-xs text-muted-foreground mt-1">Crie uma liga ou entre com um código de convite.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {myLeagues.map((lg) => (
+                  <button
+                    key={lg.leagueId}
+                    onClick={() => navigate(`/pool/league/${lg.leagueId}`)}
+                    className="w-full text-left flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:border-primary/30 hover:shadow transition-all"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+                      {lg.role === 'owner'
+                        ? <Crown size={16} className="text-amber-500" />
+                        : <Users size={16} className="text-primary" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{lg.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{lg.inviteCode}</p>
+                    </div>
+                    <ChevronRight size={15} className="text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Login Modal */}
       {showLoginModal && (

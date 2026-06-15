@@ -9,6 +9,7 @@ export function useFirestoreCache<T>(
   cacheKey: string,
   fallback: () => Promise<T[]>,
   validate?: (data: T[]) => boolean,
+  transform?: (data: T[]) => T[],
 ): { data: T[] | undefined; isLoading: boolean; isError: boolean } {
   const [data, setData] = useState<T[] | undefined>(undefined)
   const [isLoading, setIsLoading] = useState(true)
@@ -23,7 +24,7 @@ export function useFirestoreCache<T>(
           const cached = snap.data()?.data as T[] | undefined
           const isValid = cached?.length && (!validate || validate(cached))
           if (isValid) {
-            setData(cached)
+            setData(transform ? transform(cached!) : cached)
             setIsLoading(false)
             setIsError(false)
             return

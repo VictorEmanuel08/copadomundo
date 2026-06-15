@@ -10,6 +10,7 @@ import type {
 } from '../types'
 import { TEAM_MAP } from './teamMap'
 import { TEAMS } from '../mock/teams'
+import { MATCH_VENUES } from '../mock/matches'
 
 // Em dev: proxy Vite via /fd-api (evita CORS)
 // Em produção: configure um edge/cloud function e aponte BASE para lá
@@ -140,8 +141,8 @@ export const footballDataAdapter: FootballAPIAdapter = {
         homeTeam: mapTeamRaw(m.homeTeam, group ?? ''),
         awayTeam: mapTeamRaw(m.awayTeam, group ?? ''),
         date:     m.utcDate,
-        stadium:  m.venue?.name ?? '',
-        city:     m.venue?.city ?? '',
+        stadium:  m.venue?.name || MATCH_VENUES[String(m.id)]?.stadium || '',
+        city:     m.venue?.city || MATCH_VENUES[String(m.id)]?.city || '',
         phase:    mapPhase(m.stage),
         group,
         status:   mapStatus(m.status),
