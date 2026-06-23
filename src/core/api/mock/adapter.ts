@@ -1,7 +1,7 @@
 import type { FootballAPIAdapter, Match, Standing, BracketMatch, Team } from '../types'
 import { TEAMS } from './teams'
 import { GROUP_MATCHES } from './matches'
-import { INITIAL_STANDINGS } from './standings'
+import { CURRENT_STANDINGS } from './standings'
 
 // ══════════════════════════════════════════════════════════════════════
 // Chaveamento Eliminatório — Datas e Sedes Oficiais FIFA 2026
@@ -80,7 +80,7 @@ export const mockAdapter: FootballAPIAdapter = {
   },
 
   async getStandings(): Promise<Standing[]> {
-    return INITIAL_STANDINGS
+    return CURRENT_STANDINGS
   },
 
   async getBracket(): Promise<BracketMatch[]> {

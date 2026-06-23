@@ -282,10 +282,12 @@ export function generateBracket(state: SimState): FullBracket {
   return { r32, r16, qf, sf, third, final }
 }
 
-// ── Verifica se um grupo está completamente preenchido ────────────────
+// ── Verifica se um grupo está completo ─────────────────────────────────
+// Completo = 1º e 2º definidos (os dois que sempre avançam). O 3º é o
+// classificado opcional (apenas 8 dos 12 terceiros avançam ao mata-mata).
 export function isGroupComplete(r: GroupResult | undefined): boolean {
   if (!r) return false
-  return r.first !== null && r.second !== null && r.third !== null
+  return r.first !== null && r.second !== null
 }
 
 // ── Quantos grupos estão completos ────────────────────────────────────

@@ -4,12 +4,14 @@ import type { GroupResult, GroupLetter } from '../world-cup-bracket/types'
 import { cn } from '@/lib/utils'
 
 interface GroupSelectorProps {
-  group:    GroupLetter
-  result:   GroupResult
-  onChange: (result: GroupResult) => void
+  group:        GroupLetter
+  result:       GroupResult
+  onChange:     (result: GroupResult) => void
+  thirdsFull?:  boolean        // já há 8 terceiros classificados selecionados
+  onThirdLimit?: () => void    // tentou marcar um 9º terceiro
 }
 
-export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
+export function GroupSelector({ group, result, onChange, thirdsFull = false, onThirdLimit }: GroupSelectorProps) {
   const teams = TEAMS.filter(t => t.group === group)
 
   // Determinar qual posição cada time ocupa
@@ -17,7 +19,7 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
     if (result.first === teamId) return 'first'
     if (result.second === teamId) return 'second'
     if (result.third === teamId) return 'third'
-    
+
     // Se o grupo estiver completo (1º, 2º e 3º definidos), o time restante é o 4º
     const isComplete = result.first && result.second && result.third
     if (isComplete) {
@@ -29,6 +31,17 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
 
   // Manipular clique nos chips de posição (1º, 2º, 3º)
   const handleRankClick = (pos: 'first' | 'second' | 'third', teamId: string) => {
+    // Limite de 8 terceiros: se já há 8 e este grupo ainda não tem 3º marcado,
+    // bloqueia a marcação de um novo terceiro e avisa o usuário.
+    if (pos === 'third') {
+      const isToggleOff = result.third === teamId
+      const willAddNewThird = !isToggleOff && !result.third
+      if (willAddNewThird && thirdsFull) {
+        onThirdLimit?.()
+        return
+      }
+    }
+
     const next = { ...result }
 
     // Se este time já estava em outra posição, remove de lá
@@ -40,7 +53,6 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
     if (result[pos] === teamId) {
       next[pos] = null
     } else {
-      // Se outro time já ocupava essa posição, limpa a posição dele
       next[pos] = teamId
     }
 
@@ -51,7 +63,8 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
     onChange({ first: null, second: null, third: null })
   }
 
-  const isDone = !!(result.first && result.second && result.third)
+  // Grupo "pronto" quando 1º e 2º estão definidos (o 3º é classificado opcional)
+  const isDone = !!(result.first && result.second)
   const hasSelections = !!(result.first || result.second || result.third)
 
   return (
@@ -139,6 +152,9 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
                   { key: 'third', label: '3º', activeClass: 'bg-orange-500 text-white dark:text-orange-950 border-orange-500' },
                 ] as const).map(chip => {
                   const isActive = result[chip.key] === team.id
+                  // 3º bloqueado: limite de 8 atingido e este grupo ainda não
+                  // tem terceiro marcado (continua clicável para exibir o aviso)
+                  const isThirdBlocked = chip.key === 'third' && !isActive && !result.third && thirdsFull
                   return (
                     <button
                       key={chip.key}
@@ -149,6 +165,7 @@ export function GroupSelector({ group, result, onChange }: GroupSelectorProps) {
                         isActive
                           ? chip.activeClass
                           : 'border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted hover:border-border/80 hover:text-foreground active:scale-90',
+                        isThirdBlocked && 'opacity-30 hover:opacity-50',
                         isEliminated && 'opacity-30 cursor-not-allowed',
                       )}
                     >

@@ -53,6 +53,7 @@ interface CustomTeamData {
 }
 
 type ModalTab = "perfil" | "palpites" | "1x1"
+type PredFilter = "upcoming" | "finished" | "all"
 
 export function ParticipantModal({
   member,
@@ -65,6 +66,8 @@ export function ParticipantModal({
 }: ParticipantModalProps) {
   const [ct, setCt] = useState<CustomTeamData | null>(null)
   const [tab, setTab] = useState<ModalTab>("perfil")
+  const [predFilter, setPredFilter] = useState<PredFilter>("upcoming")
+  const [h2hFilter, setH2hFilter] = useState<PredFilter>("upcoming")
 
   const championPick = useMemo(() => {
     const pick = champions.find((c) => c.userId === member.userId)
@@ -74,7 +77,9 @@ export function ParticipantModal({
 
   useEffect(() => {
     document.body.style.overflow = "hidden"
-    return () => { document.body.style.overflow = "" }
+    return () => {
+      document.body.style.overflow = ""
+    }
   }, [])
 
   useEffect(() => {
@@ -125,10 +130,67 @@ export function ParticipantModal({
     return pts
   }, [myPreds, matches, scoring])
 
-  const matchesWithPreds = useMemo(
-    () => matches.filter((m) => myPredMap[m.id]).slice(0, 30),
-    [matches, myPredMap]
-  )
+  const allMatchesWithPreds = useMemo(() => {
+    const withPreds = matches.filter((m) => myPredMap[m.id])
+    const live = withPreds.filter((m) => m.status === "LIVE")
+    const upcoming = withPreds
+      .filter((m) => m.status === "SCHEDULED")
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const past = withPreds
+      .filter((m) => m.status === "FINISHED")
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return { live, upcoming, past, all: [...live, ...upcoming, ...past] }
+  }, [matches, myPredMap])
+
+  const matchesWithPreds = useMemo(() => {
+    if (predFilter === "upcoming")
+      return [...allMatchesWithPreds.live, ...allMatchesWithPreds.upcoming]
+    if (predFilter === "finished") return allMatchesWithPreds.past
+    return allMatchesWithPreds.all
+  }, [allMatchesWithPreds, predFilter])
+
+  const upcomingCount =
+    allMatchesWithPreds.live.length + allMatchesWithPreds.upcoming.length
+  const finishedCount = allMatchesWithPreds.past.length
+
+  const allH2hMatches = useMemo(() => {
+    const withEither = matches.filter(
+      (m) => myPredMap[m.id] || currentUserPredMap[m.id]
+    )
+    const live = withEither.filter((m) => m.status === "LIVE")
+    const upcoming = withEither
+      .filter((m) => m.status === "SCHEDULED")
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const past = withEither
+      .filter((m) => m.status === "FINISHED")
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return { live, upcoming, past, all: [...live, ...upcoming, ...past] }
+  }, [matches, myPredMap, currentUserPredMap])
+
+  const h2hMatches = useMemo(() => {
+    if (h2hFilter === "upcoming")
+      return [...allH2hMatches.live, ...allH2hMatches.upcoming]
+    if (h2hFilter === "finished") return allH2hMatches.past
+    return allH2hMatches.all
+  }, [allH2hMatches, h2hFilter])
+
+  const h2hUpcomingCount =
+    allH2hMatches.live.length + allH2hMatches.upcoming.length
+  const h2hFinishedCount = allH2hMatches.past.length
+
+  // Default inteligente no mount
+  useEffect(() => {
+    if (upcomingCount === 0) setPredFilter("finished")
+    if (h2hUpcomingCount === 0) setH2hFilter("finished")
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reseta filtro ao trocar de aba
+  useEffect(() => {
+    if (tab === "palpites")
+      setPredFilter(upcomingCount > 0 ? "upcoming" : "finished")
+    if (tab === "1x1")
+      setH2hFilter(h2hUpcomingCount > 0 ? "upcoming" : "finished")
+  }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isMe = member.userId === currentUserId
 
@@ -237,18 +299,28 @@ export function ParticipantModal({
                         secondaryColor={ct.kit.secondaryColor}
                         pattern={ct.kit.pattern as any}
                         collar={ct.kit.collar as any}
-                        numberColor={ct.playerNameColor ?? '#ffffff'}
+                        numberColor={ct.playerNameColor ?? "#ffffff"}
                         outlineColor={ct.kit.outlineColor}
                         showOutline={ct.kit.showOutline ?? true}
                         showCrest={ct.kit.showCrestOnJersey}
                         crestPrimary={ct.crest?.primaryColor}
-                        crestSecondary={ct.crest?.outlineColor ?? ct.crest?.secondaryColor}
+                        crestSecondary={
+                          ct.crest?.outlineColor ?? ct.crest?.secondaryColor
+                        }
                         crestShape={ct.crest?.shape as any}
                         crestPattern={ct.crest?.pattern as any}
                         crestAcronym={ct.acronym}
                         crestStars={ct.crest?.stars}
-                        number={ct.showOnJersey && ct.playerNumber ? ct.playerNumber : undefined}
-                        playerName={ct.showOnJersey && ct.playerName ? ct.playerName : undefined}
+                        number={
+                          ct.showOnJersey && ct.playerNumber
+                            ? ct.playerNumber
+                            : undefined
+                        }
+                        playerName={
+                          ct.showOnJersey && ct.playerName
+                            ? ct.playerName
+                            : undefined
+                        }
                         playerNameColor={ct.playerNameColor}
                         textScale={ct.textScale}
                         size="md"
@@ -304,22 +376,41 @@ export function ParticipantModal({
               )}
 
               {/* Champion pick */}
-              <div className={cn(
-                "flex items-center gap-3 rounded-2xl border px-4 py-3",
-                championPick
-                  ? "border-amber-500/30 bg-amber-500/5"
-                  : "border-border/30 bg-muted/20"
-              )}>
-                <Trophy size={16} className={championPick ? "text-amber-500 shrink-0" : "text-muted-foreground/30 shrink-0"} />
+              <div
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border px-4 py-3",
+                  championPick
+                    ? "border-amber-500/30 bg-amber-500/5"
+                    : "border-border/30 bg-muted/20"
+                )}
+              >
+                <Trophy
+                  size={16}
+                  className={
+                    championPick
+                      ? "shrink-0 text-amber-500"
+                      : "shrink-0 text-muted-foreground/30"
+                  }
+                />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-500/80">Aposta no Campeão</p>
+                  <p className="text-[10px] font-black tracking-wider text-amber-500/80 uppercase">
+                    Aposta no Campeão
+                  </p>
                   {championPick ? (
                     <div className="mt-1 flex items-center gap-2">
-                      <TeamFlag code={championPick.code} name={championPick.name} size={20} />
-                      <span className="text-sm font-black">{championPick.name}</span>
+                      <TeamFlag
+                        code={championPick.code}
+                        name={championPick.name}
+                        size={20}
+                      />
+                      <span className="text-sm font-black">
+                        {championPick.name}
+                      </span>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Ainda não escolheu</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ainda não escolheu
+                    </p>
                   )}
                 </div>
               </div>
@@ -328,7 +419,47 @@ export function ParticipantModal({
 
           {/* ── Palpites ── */}
           {tab === "palpites" && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              {/* Filtros */}
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    { id: "upcoming", label: "Próximos", count: upcomingCount },
+                    {
+                      id: "finished",
+                      label: "Finalizados",
+                      count: finishedCount,
+                    },
+                    {
+                      id: "all",
+                      label: "Todos",
+                      count: allMatchesWithPreds.all.length,
+                    },
+                  ] as { id: PredFilter; label: string; count: number }[]
+                ).map(({ id, label, count }) => (
+                  <button
+                    key={id}
+                    onClick={() => setPredFilter(id)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-colors",
+                      predFilter === id
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {label}
+                    <span
+                      className={cn(
+                        "rounded-full px-1 py-px text-[9px] font-black",
+                        predFilter === id ? "bg-primary/20" : "bg-muted"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               {matchesWithPreds.length === 0 ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">
                   <ListChecks size={32} className="mx-auto mb-2 opacity-20" />
@@ -337,12 +468,16 @@ export function ParticipantModal({
               ) : (
                 matchesWithPreds.map((m) => {
                   const pred = myPredMap[m.id]!
-                  const finished = m.status === "FINISHED" && m.score.home !== null
+                  const finished =
+                    m.status === "FINISHED" && m.score.home !== null
                   const pts = finished
                     ? calculateMatchPoints(
-                        { homeScore: pred.homeScore, awayScore: pred.awayScore },
+                        {
+                          homeScore: pred.homeScore,
+                          awayScore: pred.awayScore,
+                        },
                         { home: m.score.home!, away: m.score.away! },
-                        scoring,
+                        scoring
                       )
                     : null
                   const isExact = pts === scoring.exactScore
@@ -351,77 +486,124 @@ export function ParticipantModal({
                   const borderColor = !finished
                     ? "border-border"
                     : isExact
-                    ? "border-emerald-500/50"
-                    : isRight
-                    ? "border-blue-500/40"
-                    : "border-red-500/30"
+                      ? "border-emerald-500/50"
+                      : isRight
+                        ? "border-blue-500/40"
+                        : "border-red-500/30"
 
                   const bgColor = !finished
                     ? "bg-card"
                     : isExact
-                    ? "bg-emerald-500/5"
-                    : isRight
-                    ? "bg-blue-500/5"
-                    : "bg-red-500/5"
+                      ? "bg-emerald-500/5"
+                      : isRight
+                        ? "bg-blue-500/5"
+                        : "bg-red-500/5"
 
                   return (
-                    <div key={m.id} className={cn("overflow-hidden rounded-xl border", borderColor, bgColor)}>
+                    <div
+                      key={m.id}
+                      className={cn(
+                        "overflow-hidden rounded-xl border",
+                        borderColor,
+                        bgColor
+                      )}
+                    >
                       {/* Teams row */}
                       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
                         <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-                          <span className="truncate text-xs font-bold">{m.homeTeam.shortName}</span>
-                          <TeamFlag code={m.homeTeam.code} name={m.homeTeam.name} size={15} />
+                          <span className="truncate text-xs font-bold">
+                            {m.homeTeam.shortName}
+                          </span>
+                          <TeamFlag
+                            code={m.homeTeam.code}
+                            name={m.homeTeam.name}
+                            size={15}
+                          />
                         </div>
-                        <span className="shrink-0 text-[10px] text-muted-foreground/50 font-bold">vs</span>
+                        <span className="shrink-0 text-[10px] font-bold text-muted-foreground/50">
+                          vs
+                        </span>
                         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                          <TeamFlag code={m.awayTeam.code} name={m.awayTeam.name} size={15} />
-                          <span className="truncate text-xs font-bold">{m.awayTeam.shortName}</span>
+                          <TeamFlag
+                            code={m.awayTeam.code}
+                            name={m.awayTeam.name}
+                            size={15}
+                          />
+                          <span className="truncate text-xs font-bold">
+                            {m.awayTeam.shortName}
+                          </span>
                         </div>
                       </div>
 
                       {/* Scores comparison */}
-                      <div className="flex items-stretch gap-0 pb-2.5 px-3">
+                      <div className="flex items-stretch gap-0 px-3 pb-2.5">
                         {/* Prediction */}
                         <div className="flex flex-1 flex-col items-center gap-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/60">Palpite</span>
-                          <span className={cn(
-                            "text-base font-black tabular-nums",
-                            !finished ? "text-foreground" : isExact ? "text-emerald-500" : isRight ? "text-blue-400" : "text-red-400"
-                          )}>
+                          <span className="text-[9px] font-black tracking-wider text-muted-foreground/60 uppercase">
+                            Palpite
+                          </span>
+                          <span
+                            className={cn(
+                              "text-base font-black tabular-nums",
+                              !finished
+                                ? "text-foreground"
+                                : isExact
+                                  ? "text-emerald-500"
+                                  : isRight
+                                    ? "text-blue-400"
+                                    : "text-red-400"
+                            )}
+                          >
                             {pred.homeScore} – {pred.awayScore}
                           </span>
                         </div>
 
                         {/* Divider + result badge */}
-                        <div className="flex flex-col items-center justify-center px-2 gap-0.5">
+                        <div className="flex flex-col items-center justify-center gap-0.5 px-2">
                           <div className="h-full w-px bg-border/40" />
                           {finished && pts !== null && (
-                            <span className={cn(
-                              "rounded-full px-2 py-0.5 text-[9px] font-black",
-                              isExact ? "bg-emerald-500/15 text-emerald-500" : isRight ? "bg-blue-500/15 text-blue-400" : "bg-red-500/10 text-red-400"
-                            )}>
-                              {isExact ? "🎯 Exato" : isRight ? "✅ Certo" : "❌ Errou"}
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[9px] font-black",
+                                isExact
+                                  ? "bg-emerald-500/15 text-emerald-500"
+                                  : isRight
+                                    ? "bg-blue-500/15 text-blue-400"
+                                    : "bg-red-500/10 text-red-400"
+                              )}
+                            >
+                              {isExact
+                                ? "🎯 Exato"
+                                : isRight
+                                  ? "✅ Certo"
+                                  : "❌ Errou"}
                             </span>
                           )}
                         </div>
 
                         {/* Real score */}
                         <div className="flex flex-1 flex-col items-center gap-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground/60">
+                          <span className="text-[9px] font-black tracking-wider text-muted-foreground/60 uppercase">
                             {finished ? "Placar Real" : "Aguardando"}
                           </span>
-                          <span className="text-base font-black tabular-nums text-muted-foreground">
-                            {finished ? `${m.score.home} – ${m.score.away}` : "– – –"}
+                          <span className="text-base font-black text-muted-foreground tabular-nums">
+                            {finished
+                              ? `${m.score.home} – ${m.score.away}`
+                              : "– – –"}
                           </span>
                         </div>
                       </div>
 
                       {/* Points earned */}
                       {finished && pts !== null && pts > 0 && (
-                        <div className={cn(
-                          "flex items-center justify-center gap-1 py-1 text-[10px] font-black",
-                          isExact ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-400"
-                        )}>
+                        <div
+                          className={cn(
+                            "flex items-center justify-center gap-1 py-1 text-[10px] font-black",
+                            isExact
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : "bg-blue-500/10 text-blue-400"
+                          )}
+                        >
                           +{pts} pts
                         </div>
                       )}
@@ -435,90 +617,128 @@ export function ParticipantModal({
           {/* ── Head-to-Head ── */}
           {tab === "1x1" && currentUserId && (
             <div className="space-y-3">
-              <p className="text-center text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                Você vs {member.displayName.split(" ")[0]}
-              </p>
-              {matches
-                .filter((m) => myPredMap[m.id] || currentUserPredMap[m.id])
-                .slice(0, 30)
-                .map((m) => {
-                  const theirPred = myPredMap[m.id]
-                  const myPred = currentUserPredMap[m.id]
-                  return (
-                    <div
-                      key={m.id}
-                      className="overflow-hidden rounded-xl border border-border bg-card"
+              {/* Filtros */}
+              <div className="flex gap-1.5">
+                {(
+                  [
+                    {
+                      id: "upcoming",
+                      label: "Próximos",
+                      count: h2hUpcomingCount,
+                    },
+                    {
+                      id: "finished",
+                      label: "Finalizados",
+                      count: h2hFinishedCount,
+                    },
+                    {
+                      id: "all",
+                      label: "Todos",
+                      count: allH2hMatches.all.length,
+                    },
+                  ] as { id: PredFilter; label: string; count: number }[]
+                ).map(({ id, label, count }) => (
+                  <button
+                    key={id}
+                    onClick={() => setH2hFilter(id)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-colors",
+                      h2hFilter === id
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    {label}
+                    <span
+                      className={cn(
+                        "rounded-full px-1 py-px text-[9px] font-black",
+                        h2hFilter === id ? "bg-primary/20" : "bg-muted"
+                      )}
                     >
-                      <div className="flex items-center justify-center gap-1.5 border-b border-border/30 bg-muted/20 py-1.5">
-                        <TeamFlag
-                          code={m.homeTeam.code}
-                          name={m.homeTeam.name}
-                          size={12}
-                        />
-                        <span className="text-[10px] font-bold">
-                          {m.homeTeam.shortName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground/40">
-                          vs
-                        </span>
-                        <span className="text-[10px] font-bold">
-                          {m.awayTeam.shortName}
-                        </span>
-                        <TeamFlag
-                          code={m.awayTeam.code}
-                          name={m.awayTeam.name}
-                          size={12}
-                        />
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {h2hMatches.map((m) => {
+                const theirPred = myPredMap[m.id]
+                const myPred = currentUserPredMap[m.id]
+                return (
+                  <div
+                    key={m.id}
+                    className="overflow-hidden rounded-xl border border-border bg-card"
+                  >
+                    <div className="flex items-center justify-center gap-1.5 border-b border-border/30 bg-muted/20 py-1.5">
+                      <TeamFlag
+                        code={m.homeTeam.code}
+                        name={m.homeTeam.name}
+                        size={12}
+                      />
+                      <span className="text-[10px] font-bold">
+                        {m.homeTeam.shortName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/40">
+                        vs
+                      </span>
+                      <span className="text-[10px] font-bold">
+                        {m.awayTeam.shortName}
+                      </span>
+                      <TeamFlag
+                        code={m.awayTeam.code}
+                        name={m.awayTeam.name}
+                        size={12}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-border/30">
+                      <div
+                        className={cn(
+                          "flex flex-col items-center px-3 py-2",
+                          !myPred && "opacity-40"
+                        )}
+                      >
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">
+                          Você
+                        </p>
+                        <p className="mt-0.5 text-base font-black text-foreground tabular-nums">
+                          {myPred
+                            ? `${myPred.homeScore}×${myPred.awayScore}`
+                            : "—"}
+                        </p>
+                        {myPred &&
+                          m.status === "FINISHED" &&
+                          m.score.home !== null && (
+                            <span className="text-xs">
+                              {predBadge(myPred, m)}
+                            </span>
+                          )}
                       </div>
-                      <div className="grid grid-cols-2 divide-x divide-border/30">
-                        <div
-                          className={cn(
-                            "flex flex-col items-center px-3 py-2",
-                            !myPred && "opacity-40"
+                      <div
+                        className={cn(
+                          "flex flex-col items-center px-3 py-2",
+                          !theirPred && "opacity-40"
+                        )}
+                      >
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">
+                          {member.displayName.split(" ")[0]}
+                        </p>
+                        <p className="mt-0.5 text-base font-black text-primary tabular-nums">
+                          {theirPred
+                            ? `${theirPred.homeScore}×${theirPred.awayScore}`
+                            : "—"}
+                        </p>
+                        {theirPred &&
+                          m.status === "FINISHED" &&
+                          m.score.home !== null && (
+                            <span className="text-xs">
+                              {predBadge(theirPred, m)}
+                            </span>
                           )}
-                        >
-                          <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                            Você
-                          </p>
-                          <p className="mt-0.5 text-base font-black text-foreground tabular-nums">
-                            {myPred
-                              ? `${myPred.homeScore}×${myPred.awayScore}`
-                              : "—"}
-                          </p>
-                          {myPred &&
-                            m.status === "FINISHED" &&
-                            m.score.home !== null && (
-                              <span className="text-xs">
-                                {predBadge(myPred, m)}
-                              </span>
-                            )}
-                        </div>
-                        <div
-                          className={cn(
-                            "flex flex-col items-center px-3 py-2",
-                            !theirPred && "opacity-40"
-                          )}
-                        >
-                          <p className="text-[9px] font-bold text-muted-foreground uppercase">
-                            {member.displayName.split(" ")[0]}
-                          </p>
-                          <p className="mt-0.5 text-base font-black text-primary tabular-nums">
-                            {theirPred
-                              ? `${theirPred.homeScore}×${theirPred.awayScore}`
-                              : "—"}
-                          </p>
-                          {theirPred &&
-                            m.status === "FINISHED" &&
-                            m.score.home !== null && (
-                              <span className="text-xs">
-                                {predBadge(theirPred, m)}
-                              </span>
-                            )}
-                        </div>
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -206,14 +206,14 @@ function QFTree({
 
 export function BracketView({ bracket, winners, onPick, disabled = false }: BracketViewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [activeSection, setActiveSection] = useState<'left' | 'center' | 'right'>('center')
+  const [activeSection, setActiveSection] = useState<'left' | 'center' | 'right'>('left')
 
-  // Centraliza o scroll no painel de Finais por padrão
+  // Começa pela esquerda (Chave A) para já mostrar conteúdo sem rolar
   useEffect(() => {
     const timer = setTimeout(() => {
       const el = scrollContainerRef.current
       if (el) {
-        el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
+        el.scrollLeft = 0
       }
     }, 150)
     return () => clearTimeout(timer)

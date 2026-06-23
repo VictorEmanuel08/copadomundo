@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Calendário', icon: Calendar },
   { to: '/standings', label: 'Grupos', icon: BarChart2 },
   { to: '/bracket', label: 'Chaveamento', icon: GitMerge },
-  { to: '/simulator', label: 'Simulador', icon: Sliders },
+  { to: '/simulador', label: 'Simulador', icon: Sliders },
   { to: '/pool', label: 'Bolão', icon: Trophy },
   { to: '/my-team', label: 'Minha Seleção', icon: Star },
 ]
