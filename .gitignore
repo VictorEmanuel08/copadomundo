@@ -40,3 +40,13 @@ ui-debug.log
 
 PLAN.md
 .claude/
+
+# Test / coverage artifacts
+coverage/
+playwright-report/
+test-results/
+*.playwright
+
+# Misc build caches
+.turbo/
+.cache/

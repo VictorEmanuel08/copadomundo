@@ -123,6 +123,11 @@ function PredictionRow({
   const locked = isMatchLocked(match)
   const isDone = match.status === "FINISHED"
   const isLive = match.status === "LIVE"
+  const hasChanged = existing
+    ? home !== existing.homeScore ||
+      away !== existing.awayScore ||
+      comment !== (existing.comment ?? "")
+    : true
   const hasResult = match.score.home !== null && match.score.away !== null
   const minsLeft = !locked && !isDone && !isLive ? minutesToMatch(match) : null
   const closingSoon = minsLeft !== null && minsLeft <= 30
@@ -346,7 +351,7 @@ function PredictionRow({
               <Button
                 size="sm"
                 className="h-7 flex-1 px-2 text-[11px] font-bold"
-                disabled={saving}
+                disabled={saving || !hasChanged}
                 onClick={handleSave}
               >
                 {saving ? (

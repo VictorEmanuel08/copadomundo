@@ -65,6 +65,8 @@ copadomundo/
 └── .env                        # Tokens (nunca commitar)
 ```
 
+> A pasta `simulator/tests/` foi removida — continha scripts de diagnóstico Playwright que não fazem parte do app.
+
 ---
 
 ## ⚙️ Configuração Local
@@ -208,7 +210,8 @@ Cada usuário pode criar ou entrar em ligas privadas com um **código de convite
 - **Palpite no Campeão** — qual seleção vai ganhar o torneio (bônus de 30 pts)
 - **Ranking em tempo real** — classificação atualizada conforme os jogos terminam
 - **Streak counter** — 🔥 sequência de palpites certos consecutivos
-- **Head-to-Head** — comparativo direto de palpites entre dois participantes
+- **Head-to-Head (1x1)** — comparativo direto de palpites entre dois participantes, com filtros Próximos / Finalizados / Todos
+- **Filtros de palpites** — dentro do perfil de cada participante, os palpites são organizados por Próximos (ao vivo primeiro) e Finalizados (mais recentes primeiro)
 - **Exportar ranking** — gera imagem PNG para compartilhar
 
 ### Sistema de pontuação (configurável pelo admin da liga)

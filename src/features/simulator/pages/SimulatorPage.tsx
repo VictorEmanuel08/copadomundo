@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Share2, RotateCcw, CheckCircle2, ChevronRight, LayoutGrid, GitFork } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GroupSelector } from '../components/GroupSelector'
-import { ThirdPlaceSelector } from '../components/ThirdPlaceSelector'
 import { BracketView } from '../components/BracketView'
 import { ALL_GROUPS, type GroupLetter, type SimState } from '../world-cup-bracket/types'
 import { generateBracket, countCompleteGroups, isGroupComplete } from '../world-cup-bracket/bracket'
@@ -15,6 +14,7 @@ type Step = 'groups' | 'bracket'
 function useSimState() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
 
   const [state, setState] = useState<SimState>(() => {
     const s = searchParams.get('state') || searchParams.get('s')
@@ -25,37 +25,27 @@ function useSimState() {
     return emptyState()
   })
 
-  // Sincroniza URL ao mudar estado (usando a rota /simulador e state=)
+  // Sincroniza URL ao mudar estado (preserva o caminho atual para não causar
+  // redirect /simulator → /simulador; ambas as rotas servem esta página)
   const syncTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     clearTimeout(syncTimer.current)
     syncTimer.current = setTimeout(() => {
       const encoded = serializeState(state)
-      navigate(`/simulador?state=${encoded}`, { replace: true })
+      navigate(`${pathname}?state=${encoded}`, { replace: true })
     }, 300)
     return () => clearTimeout(syncTimer.current)
-  }, [state, navigate])
+  }, [state, navigate, pathname])
 
   function setGroup(group: GroupLetter, result: SimState['groups'][GroupLetter]) {
-    // Ao alterar grupo, limpa os terceiros se o terceiro mudou
     setState(prev => {
-      const newState = {
-        ...prev,
-        groups: { ...prev.groups, [group]: result },
-        bracket: {} as Record<string, string | null>,
-      }
-      // Remove o terceiro antigo dos selecionados
-      const oldThird = prev.groups[group]?.third
-      const newThird = result.third
-      if (oldThird && oldThird !== newThird) {
-        newState.thirds = prev.thirds.filter(id => id !== oldThird)
-      }
-      return newState
+      const groups = { ...prev.groups, [group]: result }
+      // thirds = todos os 3º marcados nos grupos (a UI limita a seleção a 8)
+      const thirds = ALL_GROUPS
+        .map(g => groups[g]?.third)
+        .filter((id): id is string => !!id)
+      return { ...prev, groups, thirds, bracket: {} }
     })
-  }
-
-  function setThirds(thirds: string[]) {
-    setState(prev => ({ ...prev, thirds, bracket: {} }))
   }
 
   function setBracketWinner(matchId: string, teamId: string) {
@@ -75,18 +65,28 @@ function useSimState() {
     setState(emptyState())
   }
 
-  return { state, setGroup, setThirds, setBracketWinner, reset }
+  return { state, setGroup, setBracketWinner, reset }
 }
 
 export default function SimulatorPage() {
-  const { state, setGroup, setThirds, setBracketWinner, reset } = useSimState()
+  const { state, setGroup, setBracketWinner, reset } = useSimState()
   const [tab, setTab] = useState<Step>('groups')
   const [copied, setCopied] = useState(false)
+  const [thirdLimitWarning, setThirdLimitWarning] = useState(false)
 
   const completedGroups = useMemo(() => countCompleteGroups(state.groups), [state.groups])
   const allGroupsDone   = completedGroups === ALL_GROUPS.length
-  const thirdsReady     = state.thirds.length === 8
+  const thirdsCount     = state.thirds.length
+  const thirdsReady     = thirdsCount === 8
+  const thirdsFull      = thirdsCount >= 8
+  // Chaveamento "pronto" = todos os grupos classificados E 8 terceiros escolhidos.
   const bracketReady    = allGroupsDone && thirdsReady
+
+  // Aviso ao tentar marcar um 9º terceiro classificado
+  function handleThirdLimit() {
+    setThirdLimitWarning(true)
+    setTimeout(() => setThirdLimitWarning(false), 3500)
+  }
 
   const fullBracket = useMemo(
     () => generateBracket(state),
@@ -118,7 +118,8 @@ export default function SimulatorPage() {
     }
   }
 
-  const pct = Math.round((completedGroups / ALL_GROUPS.length) * 100)
+  // Progresso considera 12 grupos (1º+2º) + 8 terceiros classificados
+  const pct = Math.round(((completedGroups + thirdsCount) / (ALL_GROUPS.length + 8)) * 100)
 
   return (
     <div className="space-y-6 select-none">
@@ -210,9 +211,26 @@ export default function SimulatorPage() {
           <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase tracking-wider">
               <span>Painel de Conclusão de Grupos</span>
-              <span>{completedGroups} de 12 completos</span>
+              <div className="flex items-center gap-3">
+                <span>{completedGroups} de 12 completos</span>
+                <span className={cn(thirdsReady ? 'text-success' : 'text-orange-500')}>
+                  3º classificados: {thirdsCount}/8
+                </span>
+              </div>
             </div>
-            
+
+            <p className="text-[11px] font-medium text-muted-foreground normal-case">
+              Escolha o 1º e o 2º de cada grupo. Marque o <span className="font-bold text-orange-500">3º</span> apenas nos 8 grupos cujos terceiros classificam ao mata-mata.
+            </p>
+
+            {/* Aviso de limite de 8 terceiros */}
+            {thirdLimitWarning && (
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-600 dark:text-amber-400 animate-fade-in">
+                <span className="shrink-0">⚠️</span>
+                Limite de 8 terceiros classificados atingido. Desmarque um 3º colocado para selecionar outro.
+              </div>
+            )}
+
             <div className="grid grid-cols-6 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
               {ALL_GROUPS.map(g => {
                 const isDone = isGroupComplete(state.groups[g])
@@ -243,18 +261,11 @@ export default function SimulatorPage() {
                   group={g}
                   result={state.groups[g]}
                   onChange={r => setGroup(g, r)}
+                  thirdsFull={thirdsFull}
+                  onThirdLimit={handleThirdLimit}
                 />
               </div>
             ))}
-          </div>
-
-          {/* Painel de Terceiros colocados */}
-          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-            <ThirdPlaceSelector
-              groups={state.groups}
-              selected={state.thirds}
-              onChange={setThirds}
-            />
           </div>
 
           {/* Botão de avanço rápido */}
@@ -275,22 +286,22 @@ export default function SimulatorPage() {
       {/* Conteúdo da Aba 2: Mata-Mata */}
       {tab === 'bracket' && (
         <div className="space-y-4 animate-fade-in">
-          {/* Banner explicativo de bloqueio / leitura */}
+          {/* Alerta de estado — o mata-mata sempre pode ser simulado */}
           {!bracketReady && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
               <p className="text-xs text-amber-600 dark:text-amber-400 font-bold">
-                Aviso: O chaveamento está em modo de leitura. Complete a classificação dos grupos e a escolha dos melhores terceiros para poder simular e avançar os times.
+                ⚠️ Os grupos estão incompletos. Você pode simular o mata-mata mesmo assim, mas nem todas as chaves estão definidas. ({completedGroups}/12 grupos · {thirdsCount}/8 terceiros)
               </p>
             </div>
           )}
 
-          {/* Container do Bracket */}
+          {/* Container do Bracket — cards em tamanho natural, com rolagem */}
           <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
             <BracketView
               bracket={fullBracket}
               winners={state.bracket}
               onPick={(matchId, teamId) => setBracketWinner(matchId, teamId)}
-              disabled={!bracketReady}
+              disabled={false}
             />
           </div>
         </div>

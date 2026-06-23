@@ -249,16 +249,17 @@ function QFTree({
 
 export function BracketView() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [activeSection, setActiveSection] = useState<'left' | 'center' | 'right'>('center')
+  const [activeSection, setActiveSection] = useState<'left' | 'center' | 'right'>('left')
 
   const { data: standings, isLoading: loadingStandings } = useStandings()
   const { data: apiMatches, isLoading: loadingBracket } = useBracket()
 
+  // Começa pela esquerda (Chave A) para já mostrar conteúdo sem rolar
   useEffect(() => {
     const timer = setTimeout(() => {
       const el = scrollContainerRef.current
       if (el) {
-        el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
+        el.scrollLeft = 0
       }
     }, 200)
     return () => clearTimeout(timer)
