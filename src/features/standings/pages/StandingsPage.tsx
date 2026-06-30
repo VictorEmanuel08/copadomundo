@@ -1,10 +1,22 @@
+import { useMemo } from 'react'
 import { useStandings } from '../hooks/useStandings'
 import { GroupTable } from '../components/GroupTable'
 import { Loader2 } from 'lucide-react'
 import { GROUPS } from '@/core/api/mock/standings'
+import { useBracket } from '@/features/bracket/hooks/useBracket'
+import { deriveGroups, resolveQualifiedThirds } from '@/features/simulator/world-cup-bracket/scenario'
 
 export default function StandingsPage() {
   const { data: standings, isLoading, isError } = useStandings()
+  const { data: bracketMatches } = useBracket()
+
+  // Os 8 melhores terceiros classificados (fonte autoritativa: os 16-avos reais;
+  // critério pontos→saldo→gols como fallback antes do mata-mata).
+  const qualifiedThirds = useMemo(() => {
+    if (!standings) return new Set<string>()
+    const { groups, thirds } = deriveGroups(standings)
+    return new Set(resolveQualifiedThirds(groups, bracketMatches, thirds))
+  }, [standings, bracketMatches])
 
   if (isLoading) {
     return (
@@ -41,7 +53,7 @@ export default function StandingsPage() {
         {GROUPS.map((group) => {
           const groupStandings = standings.filter((s) => s.group === group)
           if (!groupStandings.length) return null
-          return <GroupTable key={group} group={group} standings={groupStandings} />
+          return <GroupTable key={group} group={group} standings={groupStandings} qualifiedThirds={qualifiedThirds} />
         })}
       </div>
     </div>

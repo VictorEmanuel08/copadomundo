@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { TeamFlag } from '@/shared/components/TeamFlag'
 import { useBracket } from '../hooks/useBracket'
 import { TEAMS } from '@/core/api/mock/teams'
-import { ALL_GROUPS, type GroupLetter } from '@/features/simulator/world-cup-bracket/types'
 import { generateBracket } from '@/features/simulator/world-cup-bracket/bracket'
+import { deriveScenarioState, findLiveMatch, winnerOf } from '@/features/simulator/world-cup-bracket/scenario'
 import { useStandings } from '@/features/standings/hooks/useStandings'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import type { Team } from '@/core/api/types'
+import type { Team, MatchWinner } from '@/core/api/types'
 
 function formatMatchDate(iso: string): string {
   const d = new Date(iso)
@@ -27,13 +27,21 @@ function shortVenue(stadium: string | null | undefined, city: string | null | un
 interface TeamRowProps {
   team: Team | null
   score: number | null
+  pen?: number | null
   winner: boolean
   loser: boolean
   label: string
   status?: string
 }
 
-function TeamRow({ team, score, winner, loser, label }: TeamRowProps) {
+// Um confronto está decidido se a API marcou o vencedor (cobre pênaltis, em que
+// o placar de exibição fica empatado) ou, em caches antigos, se o placar difere.
+function isDecided(m: { winner?: MatchWinner; homeScore: number | null; awayScore: number | null }): boolean {
+  if (m.winner === 'HOME_TEAM' || m.winner === 'AWAY_TEAM') return true
+  return m.homeScore != null && m.awayScore != null && m.homeScore !== m.awayScore
+}
+
+function TeamRow({ team, score, pen, winner, loser, label }: TeamRowProps) {
   return (
     <div
       className={cn(
@@ -49,6 +57,9 @@ function TeamRow({ team, score, winner, loser, label }: TeamRowProps) {
           {score !== null && (
             <span className={cn('font-bold tabular-nums ml-1', winner ? 'text-success' : 'text-muted-foreground')}>
               {score}
+              {pen != null && (
+                <span className="ml-0.5 text-[9px] font-semibold opacity-70" title="Pênaltis">({pen})</span>
+              )}
             </span>
           )}
         </>
@@ -64,6 +75,9 @@ function MatchNode({
   awayTeam,
   homeScore,
   awayScore,
+  penHome,
+  penAway,
+  winner,
   homeLabel,
   awayLabel,
   status,
@@ -76,6 +90,9 @@ function MatchNode({
   awayTeam: Team | null
   homeScore: number | null
   awayScore: number | null
+  penHome?: number | null
+  penAway?: number | null
+  winner?: MatchWinner
   homeLabel: string
   awayLabel: string
   status?: string
@@ -85,11 +102,19 @@ function MatchNode({
   city?: string | null
 }) {
   const isFinal = label === 'Final'
-  
-  const homeWon = homeScore !== null && awayScore !== null && homeScore > awayScore
-  const awayWon = homeScore !== null && awayScore !== null && awayScore > homeScore
-  const homeLost = homeScore !== null && awayScore !== null && homeScore < awayScore
-  const awayLost = homeScore !== null && awayScore !== null && awayScore < homeScore
+
+  // Lado vencedor pelo campo oficial (cobre pênaltis); cai p/ comparação de
+  // gols em caches antigos sem `winner`.
+  const decided: 'home' | 'away' | null =
+    winner === 'HOME_TEAM' ? 'home'
+    : winner === 'AWAY_TEAM' ? 'away'
+    : (homeScore !== null && awayScore !== null && homeScore !== awayScore)
+      ? (homeScore > awayScore ? 'home' : 'away')
+      : null
+  const homeWon = decided === 'home'
+  const awayWon = decided === 'away'
+  const homeLost = decided === 'away'
+  const awayLost = decided === 'home'
 
   return (
     <div
@@ -115,6 +140,7 @@ function MatchNode({
         <TeamRow
           team={homeTeam}
           score={homeScore}
+          pen={penHome}
           winner={homeWon}
           loser={homeLost}
           label={homeLabel}
@@ -122,6 +148,7 @@ function MatchNode({
         <TeamRow
           team={awayTeam}
           score={awayScore}
+          pen={penAway}
           winner={awayWon}
           loser={awayLost}
           label={awayLabel}
@@ -185,6 +212,9 @@ interface MergedMatch {
   awayTeam: Team | null
   homeScore: number | null
   awayScore: number | null
+  penHome?: number | null
+  penAway?: number | null
+  winner?: MatchWinner
   homeLabel: string
   awayLabel: string
   status?: string
@@ -204,13 +234,13 @@ function QFTree({
   qf: MergedMatch,
   isLeft?: boolean,
 }) {
-  const top1Won = top1.homeScore !== null && top1.awayScore !== null && top1.homeScore !== top1.awayScore
-  const bottom1Won = bottom1.homeScore !== null && bottom1.awayScore !== null && bottom1.homeScore !== bottom1.awayScore
-  const top2Won = top2.homeScore !== null && top2.awayScore !== null && top2.homeScore !== top2.awayScore
-  const bottom2Won = bottom2.homeScore !== null && bottom2.awayScore !== null && bottom2.homeScore !== bottom2.awayScore
-  
-  const r16_1_Won = r16_1.homeScore !== null && r16_1.awayScore !== null && r16_1.homeScore !== r16_1.awayScore
-  const r16_2_Won = r16_2.homeScore !== null && r16_2.awayScore !== null && r16_2.homeScore !== r16_2.awayScore
+  const top1Won = isDecided(top1)
+  const bottom1Won = isDecided(bottom1)
+  const top2Won = isDecided(top2)
+  const bottom2Won = isDecided(bottom2)
+
+  const r16_1_Won = isDecided(r16_1)
+  const r16_2_Won = isDecided(r16_2)
 
   return (
     <div className={cn("flex items-center shrink-0", isLeft ? "flex-row" : "flex-row-reverse")}>
@@ -283,82 +313,14 @@ export function BracketView() {
   const mergedBracket = useMemo(() => {
     if (!standings) return null
 
-    const groupStatus: Record<GroupLetter, { first: string | null; second: string | null; third: string | null }> = {} as any
-    const finishedGroups: GroupLetter[] = []
+    // Deriva grupos + 8 terceiros + vencedores reais a partir da MESMA fonte
+    // (classificação + mata-mata da API). Toda a lógica vive em scenario.ts —
+    // o simulador consome exatamente a mesma derivação.
+    const sim = deriveScenarioState(standings, apiMatches)
+    const baseBracket = generateBracket(sim)
 
-    for (const g of ALL_GROUPS) {
-      const rows = standings.filter(s => s.group === g)
-      const isFinished = rows.length > 0 && rows.every(s => s.played === 3)
-      const isStarted = rows.some(s => s.played > 0)
-
-      if (isStarted || isFinished) {
-        const sorted = [...rows].sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points
-          if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-          return b.goalsFor - a.goalsFor
-        })
-        
-        groupStatus[g] = {
-          first: sorted[0]?.team.id ?? null,
-          second: sorted[1]?.team.id ?? null,
-          third: sorted[2]?.team.id ?? null,
-        }
-        
-        if (isFinished) {
-          finishedGroups.push(g)
-        }
-      } else {
-        groupStatus[g] = { first: null, second: null, third: null }
-      }
-    }
-
-    let bestThirdsIds: string[] = []
-    if (finishedGroups.length === 12) {
-      const thirdsList = ALL_GROUPS.map(g => {
-        const rows = standings.filter(s => s.group === g)
-        const sorted = [...rows].sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points
-          if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-          return b.goalsFor - a.goalsFor
-        })
-        return sorted[2]
-      }).filter(Boolean)
-
-      const sortedThirds = [...thirdsList].sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points
-        if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
-        return b.goalsFor - a.goalsFor
-      })
-      bestThirdsIds = sortedThirds.slice(0, 8).map(r => r.team.id)
-    }
-
-    const baseBracket = generateBracket({
-      groups: groupStatus,
-      thirds: bestThirdsIds,
-      bracket: {}
-    })
-
-    const findApiMatch = (roundName: string, slotIdx: number) => {
-      if (!apiMatches || apiMatches.length === 0) return null
-      
-      const roundMap: Record<string, string> = {
-        'R32': 'ROUND_OF_32',
-        'R16': 'ROUND_OF_16',
-        'QF': 'QUARTER_FINALS',
-        'SF': 'SEMI_FINALS',
-        'THIRD': 'THIRD_PLACE',
-        'FINAL': 'FINAL'
-      }
-      
-      const apiPhase = roundMap[roundName]
-      const matchesInPhase = apiMatches.filter(m => m.round === apiPhase)
-      // Ordena por ID do match para alinhar com o chaveamento
-      const sorted = [...matchesInPhase].sort((a, b) => a.id.localeCompare(b.id))
-      return sorted[slotIdx] ?? null
-    }
-
-    const mergeMatch = (baseMatch: any, roundName: string, slotIdx: number): MergedMatch => {
-      const live = findApiMatch(roundName, slotIdx)
+    const mergeMatch = (baseMatch: any, roundName: string): MergedMatch => {
+      const live = findLiveMatch(apiMatches, roundName, baseMatch.home, baseMatch.away)
       const homeTeam = live?.homeTeam ?? (baseMatch.home ? TEAMS.find(t => t.id === baseMatch.home) ?? null : null)
       const awayTeam = live?.awayTeam ?? (baseMatch.away ? TEAMS.find(t => t.id === baseMatch.away) ?? null : null)
 
@@ -367,6 +329,9 @@ export function BracketView() {
         awayTeam,
         homeScore: live?.score.home ?? null,
         awayScore: live?.score.away ?? null,
+        penHome: live?.penalties?.home ?? null,
+        penAway: live?.penalties?.away ?? null,
+        winner: live?.winner ?? null,
         homeLabel: baseMatch.homeLabel || 'A definir',
         awayLabel: baseMatch.awayLabel || 'A definir',
         status: live?.status || 'SCHEDULED',
@@ -376,21 +341,22 @@ export function BracketView() {
       }
     }
 
-    const r32 = baseBracket.r32.map((m, i) => mergeMatch(m, 'R32', i))
-    const r16 = baseBracket.r16.map((m, i) => mergeMatch(m, 'R16', i))
-    const qf = baseBracket.qf.map((m, i) => mergeMatch(m, 'QF', i))
-    const sf = baseBracket.sf.map((m, i) => mergeMatch(m, 'SF', i))
-    const third = mergeMatch(baseBracket.third, 'THIRD', 0)
-    const final = mergeMatch(baseBracket.final, 'FINAL', 0)
+    const r32 = baseBracket.r32.map((m) => mergeMatch(m, 'R32'))
+    const r16 = baseBracket.r16.map((m) => mergeMatch(m, 'R16'))
+    const qf = baseBracket.qf.map((m) => mergeMatch(m, 'QF'))
+    const sf = baseBracket.sf.map((m) => mergeMatch(m, 'SF'))
+    const third = mergeMatch(baseBracket.third, 'THIRD')
+    const final = mergeMatch(baseBracket.final, 'FINAL')
 
     let champion: Team | null = null
-    const finalLive = findApiMatch('FINAL', 0)
-    if (finalLive && finalLive.status === 'FINISHED' && finalLive.score.home !== null && finalLive.score.away !== null) {
-      if (finalLive.score.home > finalLive.score.away) {
-        champion = finalLive.homeTeam
-      } else {
-        champion = finalLive.awayTeam
-      }
+    const finalLive = findLiveMatch(apiMatches, 'FINAL', baseBracket.final.home, baseBracket.final.away)
+    if (finalLive && finalLive.status === 'FINISHED') {
+      const champId = winnerOf(finalLive)
+      champion = finalLive.homeTeam?.id === champId
+        ? finalLive.homeTeam
+        : finalLive.awayTeam?.id === champId
+          ? finalLive.awayTeam
+          : null
     }
 
     return { r32, r16, qf, sf, third, final, champion }
@@ -416,13 +382,13 @@ export function BracketView() {
 
   const sf1 = sf[0]
   const sf2 = sf[1]
-  const sf1_Won = sf1.homeScore !== null && sf1.awayScore !== null && sf1.homeScore !== sf1.awayScore
-  const sf2_Won = sf2.homeScore !== null && sf2.awayScore !== null && sf2.homeScore !== sf2.awayScore
+  const sf1_Won = isDecided(sf1)
+  const sf2_Won = isDecided(sf2)
 
-  const qf1_Won = qf[0].homeScore !== null && qf[0].awayScore !== null && qf[0].homeScore !== qf[0].awayScore
-  const qf2_Won = qf[1].homeScore !== null && qf[1].awayScore !== null && qf[1].homeScore !== qf[1].awayScore
-  const qf3_Won = qf[2].homeScore !== null && qf[2].awayScore !== null && qf[2].homeScore !== qf[2].awayScore
-  const qf4_Won = qf[3].homeScore !== null && qf[3].awayScore !== null && qf[3].homeScore !== qf[3].awayScore
+  const qf1_Won = isDecided(qf[0])
+  const qf2_Won = isDecided(qf[1])
+  const qf3_Won = isDecided(qf[2])
+  const qf4_Won = isDecided(qf[3])
 
   return (
     <div className="space-y-4">

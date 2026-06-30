@@ -40,7 +40,7 @@ export const TEAM_MAP: Record<string, { code: string; name: string; shortName: s
   ESP: { code: 'es',      name: 'Espanha',            shortName: 'ESP' },
   CPV: { code: 'cv',      name: 'Cabo Verde',         shortName: 'CPV' },
   KSA: { code: 'sa',      name: 'Arábia Saudita',     shortName: 'ARS' },
-  URY: { code: 'uy',      name: 'Uruguai',            shortName: 'URU' },
+  URU: { code: 'uy',      name: 'Uruguai',            shortName: 'URU' },
   // Grupo I
   FRA: { code: 'fr',      name: 'França',             shortName: 'FRA' },
   SEN: { code: 'sn',      name: 'Senegal',            shortName: 'SEN' },

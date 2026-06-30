@@ -5,14 +5,18 @@ import { cn } from '@/lib/utils'
 interface GroupTableProps {
   group: string
   standings: Standing[]
+  qualifiedThirds?: Set<string>   // ids dos 8 terceiros classificados
 }
 
-export function GroupTable({ group, standings }: GroupTableProps) {
+export function GroupTable({ group, standings, qualifiedThirds }: GroupTableProps) {
   const sorted = [...standings].sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
     if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff
     return b.goalsFor - a.goalsFor
   })
+
+  // 3º colocado deste grupo que se classificou (entre os 8 melhores terceiros).
+  const thirdQualified = !!qualifiedThirds && sorted.length > 2 && qualifiedThirds.has(sorted[2].team.id)
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
@@ -38,16 +42,23 @@ export function GroupTable({ group, standings }: GroupTableProps) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((s, i) => (
+            {sorted.map((s, i) => {
+              const isTop2 = i < 2
+              const isThirdQ = i === 2 && thirdQualified
+              return (
               <tr
                 key={s.team.id}
                 className={cn(
                   'border-b border-border/40 last:border-0 transition-colors hover:bg-muted/20',
-                  i < 2 && 'border-l-[3px] border-l-primary',
+                  isTop2 && 'border-l-[3px] border-l-primary',
+                  isThirdQ && 'border-l-[3px] border-l-amber-500 bg-amber-500/[0.04]',
                 )}
               >
                 <td className="px-4 py-2.5">
-                  <span className={cn('text-xs font-bold', i < 2 ? 'text-primary' : 'text-muted-foreground')}>
+                  <span className={cn(
+                    'text-xs font-bold',
+                    isTop2 ? 'text-primary' : isThirdQ ? 'text-amber-500' : 'text-muted-foreground',
+                  )}>
                     {i + 1}
                   </span>
                 </td>
@@ -56,6 +67,11 @@ export function GroupTable({ group, standings }: GroupTableProps) {
                     <TeamFlag code={s.team.code} name={s.team.name} size={18} />
                     <span className="hidden font-medium sm:inline">{s.team.name}</span>
                     <span className="font-medium sm:hidden">{s.team.shortName}</span>
+                    {isThirdQ && (
+                      <span className="ml-1 shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                        3º classificado
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-2 py-2.5 text-center text-sm font-black text-primary">{s.points}</td>
@@ -74,14 +90,22 @@ export function GroupTable({ group, standings }: GroupTableProps) {
                   {s.goalDiff > 0 ? `+${s.goalDiff}` : s.goalDiff}
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center gap-1.5 px-4 py-2 text-[11px] text-muted-foreground">
-        <span className="h-3 w-0.5 rounded-full bg-primary" />
-        <span>Classificados para oitavas</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-0.5 rounded-full bg-primary" />
+          Classificados para oitavas
+        </span>
+        {thirdQualified && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-3 w-0.5 rounded-full bg-amber-500" />
+            3º melhor — classificado
+          </span>
+        )}
       </div>
     </div>
   )

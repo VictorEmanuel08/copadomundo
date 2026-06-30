@@ -42,7 +42,10 @@ function mapStatus(s: string): MatchStatus {
 function mapPhase(stage: string): MatchPhase {
   const map: Record<string, MatchPhase> = {
     GROUP_STAGE:    'GROUP_STAGE',
+    // A API renomeou os mata-matas: LAST_32/LAST_16 (antes ROUND_OF_32/16).
+    LAST_32:        'ROUND_OF_32',
     ROUND_OF_32:    'ROUND_OF_32',
+    LAST_16:        'ROUND_OF_16',
     ROUND_OF_16:    'ROUND_OF_16',
     QUARTER_FINALS: 'QUARTER_FINALS',
     SEMI_FINALS:    'SEMI_FINALS',
@@ -85,11 +88,28 @@ interface ApiTeam {
   id: number; name: string; shortName: string; tla: string; crest: string
 }
 
+interface ApiGoals { home: number | null; away: number | null }
 interface ApiScore {
   winner: string | null
   duration: string
-  fullTime: { home: number | null; away: number | null }
-  halfTime:  { home: number | null; away: number | null }
+  fullTime: ApiGoals
+  halfTime:  ApiGoals
+  regularTime?: ApiGoals
+  extraTime?:   ApiGoals
+  penalties?:   ApiGoals
+}
+
+// Placar de exibição (120') + pênaltis separados — ver nota na Cloud Function.
+function displayScore(s: ApiScore): { score: ApiGoals; penalties: ApiGoals | null } {
+  if (s.duration === 'PENALTY_SHOOTOUT' && s.penalties) {
+    const rt = s.regularTime ?? { home: 0, away: 0 }
+    const et = s.extraTime ?? { home: 0, away: 0 }
+    return {
+      score: { home: (rt.home ?? 0) + (et.home ?? 0), away: (rt.away ?? 0) + (et.away ?? 0) },
+      penalties: { home: s.penalties.home, away: s.penalties.away },
+    }
+  }
+  return { score: { home: s.fullTime.home, away: s.fullTime.away }, penalties: null }
 }
 
 interface ApiMatch {
@@ -179,31 +199,46 @@ export const footballDataAdapter: FootballAPIAdapter = {
         })
       }
     }
+    // A API devolve uma tabela única (rank global). Recalcula a posição 1..N
+    // dentro de cada grupo, por pontos → saldo → gols pró.
+    const byGroup: Record<string, Standing[]> = {}
+    for (const s of result) (byGroup[s.group] ??= []).push(s)
+    for (const rows of Object.values(byGroup)) {
+      rows.sort((a, b) =>
+        b.points - a.points ||
+        b.goalDiff - a.goalDiff ||
+        b.goalsFor - a.goalsFor,
+      )
+      rows.forEach((r, i) => { r.position = i + 1 })
+    }
     return result
   },
 
   async getBracket(): Promise<BracketMatch[]> {
-    const stages = [
-      'ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINALS',
-      'SEMI_FINALS', 'THIRD_PLACE', 'FINAL',
-    ].join(',')
+    // Busca todos os jogos e particiona por fase no código. Filtrar por
+    // ?stage= com os nomes antigos (ROUND_OF_32/16) parou de funcionar quando
+    // a API renomeou para LAST_32/LAST_16 — derivar é imune a esse drift.
     const data = await apiFetch<{ matches: ApiMatch[] }>(
-      `/competitions/WC/matches?season=2026&stage=${stages}`,
+      `/competitions/WC/matches?season=2026`,
     )
-    return data.matches.map((m, i) => ({
-      id:       String(m.id),
-      round:    mapPhase(m.stage),
-      slot:     i + 1,
-      homeTeam: m.homeTeam?.id ? mapTeamRaw(m.homeTeam) : null,
-      awayTeam: m.awayTeam?.id ? mapTeamRaw(m.awayTeam) : null,
-      score: {
-        home: m.score.fullTime.home,
-        away: m.score.fullTime.away,
-      },
-      status: mapStatus(m.status),
-      date:   m.utcDate ?? null,
-      stadium: m.venue?.name ?? '',
-      city:   m.venue?.city ?? '',
-    }))
+    const knockout = data.matches.filter((m) => m.stage !== 'GROUP_STAGE')
+    return knockout.map((m, i) => {
+      const { score, penalties } = displayScore(m.score)
+      return {
+        id:       String(m.id),
+        round:    mapPhase(m.stage),
+        slot:     i + 1,
+        homeTeam: m.homeTeam?.id ? mapTeamRaw(m.homeTeam) : null,
+        awayTeam: m.awayTeam?.id ? mapTeamRaw(m.awayTeam) : null,
+        score,
+        penalties,
+        winner:   (m.score.winner ?? null) as BracketMatch['winner'],
+        duration: m.score.duration ?? null,
+        status:   mapStatus(m.status),
+        date:     m.utcDate ?? null,
+        stadium:  m.venue?.name ?? '',
+        city:     m.venue?.city ?? '',
+      }
+    })
   },
 }
