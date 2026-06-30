@@ -40,7 +40,7 @@ const TEAM_MAP: Record<string, { code: string; name: string; shortName: string }
   ESP: { code: 'es',     name: 'Espanha',             shortName: 'ESP' },
   CPV: { code: 'cv',     name: 'Cabo Verde',          shortName: 'CPV' },
   KSA: { code: 'sa',     name: 'Arábia Saudita',      shortName: 'ARS' },
-  URY: { code: 'uy',     name: 'Uruguai',             shortName: 'URU' },
+  URU: { code: 'uy',     name: 'Uruguai',             shortName: 'URU' },
   FRA: { code: 'fr',     name: 'França',              shortName: 'FRA' },
   SEN: { code: 'sn',     name: 'Senegal',             shortName: 'SEN' },
   IRQ: { code: 'iq',     name: 'Iraque',              shortName: 'IRQ' },
@@ -62,9 +62,32 @@ const TEAM_MAP: Record<string, { code: string; name: string; shortName: string }
 interface ApiTeam {
   id: number; name: string; shortName: string; tla: string; crest: string
 }
+interface ApiGoals { home: number | null; away: number | null }
 interface ApiScore {
   winner: string | null
-  fullTime: { home: number | null; away: number | null }
+  duration?: string
+  fullTime: ApiGoals
+  regularTime?: ApiGoals
+  extraTime?: ApiGoals
+  penalties?: ApiGoals
+}
+
+// Placar de EXIBIÇÃO de um mata-mata: tempo normal + prorrogação (sem pênaltis).
+// A API soma os pênaltis no fullTime; para exibir "1-1 (pên 3-4)" precisamos do
+// 120' separado. Fora de disputa por pênaltis, usa o fullTime direto.
+function displayScore(s: ApiScore): { score: ApiGoals; penalties: ApiGoals | null } {
+  if (s.duration === 'PENALTY_SHOOTOUT' && s.penalties) {
+    const rt = s.regularTime ?? { home: 0, away: 0 }
+    const et = s.extraTime ?? { home: 0, away: 0 }
+    return {
+      score: {
+        home: (rt.home ?? 0) + (et.home ?? 0),
+        away: (rt.away ?? 0) + (et.away ?? 0),
+      },
+      penalties: { home: s.penalties.home, away: s.penalties.away },
+    }
+  }
+  return { score: { home: s.fullTime.home, away: s.fullTime.away }, penalties: null }
 }
 interface ApiMatch {
   id: number; utcDate: string; status: string; stage: string
@@ -91,8 +114,12 @@ function mapStatus(s: string) {
 
 function mapPhase(stage: string) {
   const map: Record<string, string> = {
-    GROUP_STAGE: 'GROUP_STAGE', ROUND_OF_32: 'ROUND_OF_32',
-    ROUND_OF_16: 'ROUND_OF_16', QUARTER_FINALS: 'QUARTER_FINALS',
+    GROUP_STAGE: 'GROUP_STAGE',
+    // A API renomeou os mata-matas: LAST_32/LAST_16 (antes ROUND_OF_32/16).
+    // Mantemos as duas chaves para resistir a futuras mudanças.
+    LAST_32: 'ROUND_OF_32', ROUND_OF_32: 'ROUND_OF_32',
+    LAST_16: 'ROUND_OF_16', ROUND_OF_16: 'ROUND_OF_16',
+    QUARTER_FINALS: 'QUARTER_FINALS',
     SEMI_FINALS: 'SEMI_FINALS', THIRD_PLACE: 'THIRD_PLACE', FINAL: 'FINAL',
   }
   return map[stage] ?? 'GROUP_STAGE'
@@ -107,7 +134,7 @@ const TLA_GROUP: Record<string, string> = {
   GER: 'E', CUW: 'E', CIV: 'E', ECU: 'E',
   NED: 'F', JPN: 'F', SWE: 'F', TUN: 'F',
   BEL: 'G', EGY: 'G', IRN: 'G', NZL: 'G',
-  ESP: 'H', CPV: 'H', KSA: 'H', URY: 'H',
+  ESP: 'H', CPV: 'H', KSA: 'H', URU: 'H',
   FRA: 'I', SEN: 'I', IRQ: 'I', NOR: 'I',
   ARG: 'J', ALG: 'J', AUT: 'J', JOR: 'J',
   POR: 'K', COD: 'K', UZB: 'K', COL: 'K',
@@ -194,13 +221,17 @@ function mapGroup(g: string | null) {
   return g.replace('GROUP_', '') || null
 }
 
+// Exceções em que o id canônico do app difere de tla.toLowerCase()
+// (o front usa 'cur' para o Curaçao, cujo TLA na API é 'CUW').
+const ID_OVERRIDE: Record<string, string> = { CUW: 'cur' }
+
 function mapTeam(raw: ApiTeam, group?: string | null) {
   const tla = raw.tla?.toUpperCase() ?? ''
   const mapped = TEAM_MAP[tla]
   // Use API group if provided, otherwise fall back to the static draw table
   const resolvedGroup = group ?? TLA_GROUP[tla] ?? ''
   return {
-    id:        mapped ? tla.toLowerCase() : String(raw.id),
+    id:        mapped ? (ID_OVERRIDE[tla] ?? tla.toLowerCase()) : String(raw.id),
     name:      mapped?.name      ?? raw.name,
     shortName: mapped?.shortName ?? raw.tla,
     code:      mapped?.code      ?? 'un',
@@ -273,11 +304,15 @@ export const syncFootballData = onSchedule(
 
     const now = new Date().toISOString()
 
+    // Guardamos os jogos crus para reaproveitar no bracket (sem 3ª chamada à API)
+    let rawMatches: ApiMatch[] = []
+
     try {
       const matchData = await apiFetch<{ matches: ApiMatch[] }>(
         '/competitions/WC/matches?season=2026', token,
       )
-      const matches = matchData.matches.map(transformMatch)
+      rawMatches = matchData.matches
+      const matches = rawMatches.map(transformMatch)
       await db.doc('cache/matches').set({ data: matches, updatedAt: now })
 
       const hasLive = matches.some((m) => m.status === 'LIVE')
@@ -288,15 +323,46 @@ export const syncFootballData = onSchedule(
       console.error('[sync] matches failed:', err)
     }
 
-    // Small delay to avoid hitting rate limit (3 calls/min total)
+    // 2. Bracket — derivado dos jogos já buscados (fases não-GROUP_STAGE).
+    // A API renomeou os mata-matas (LAST_32/LAST_16); filtrar por stage no
+    // request quebrava silenciosamente, então particionamos em código.
+    if (rawMatches.length) {
+      try {
+        const knockout = rawMatches.filter((m) => m.stage !== 'GROUP_STAGE')
+        const bracket = knockout.map((m, i) => {
+          const { score, penalties } = displayScore(m.score)
+          return {
+            id:       String(m.id),
+            round:    mapPhase(m.stage),
+            slot:     i + 1,
+            homeTeam: m.homeTeam?.id ? mapTeam(m.homeTeam) : null,
+            awayTeam: m.awayTeam?.id ? mapTeam(m.awayTeam) : null,
+            score,
+            penalties,
+            winner:   m.score.winner ?? null,
+            duration: m.score.duration ?? null,
+            status:   mapStatus(m.status),
+            date:     m.utcDate ?? null,
+            stadium:  m.venue?.name || MATCH_VENUES[String(m.id)]?.stadium || '',
+            city:     m.venue?.city || MATCH_VENUES[String(m.id)]?.city || '',
+          }
+        })
+        await db.doc('cache/bracket').set({ data: bracket, updatedAt: now })
+        console.log(`[sync] bracket: ${bracket.length} matches`)
+      } catch (err) {
+        console.error('[sync] bracket failed:', err)
+      }
+    }
+
+    // Small delay to avoid hitting rate limit
     await new Promise((r) => setTimeout(r, 6000))
 
     try {
-      // 2. Standings
+      // 3. Standings
       const standData = await apiFetch<{ standings: ApiStandingSection[] }>(
         '/competitions/WC/standings?season=2026', token,
       )
-      const standings: object[] = []
+      const standings: ReturnType<typeof transformStanding>[] = []
       for (const section of standData.standings) {
         if (section.type !== 'TOTAL') continue
         const g = mapGroup(section.group)
@@ -304,36 +370,22 @@ export const syncFootballData = onSchedule(
           standings.push(transformStanding(row, g))
         }
       }
+      // A API passou a devolver uma tabela única (rank global 1–48). Recalcula
+      // a posição 1..N dentro de cada grupo, por pontos → saldo → gols pró.
+      const byGroup: Record<string, ReturnType<typeof transformStanding>[]> = {}
+      for (const s of standings) (byGroup[s.group] ??= []).push(s)
+      for (const rows of Object.values(byGroup)) {
+        rows.sort((a, b) =>
+          b.points - a.points ||
+          b.goalDiff - a.goalDiff ||
+          b.goalsFor - a.goalsFor,
+        )
+        rows.forEach((r, i) => { r.position = i + 1 })
+      }
       await db.doc('cache/standings').set({ data: standings, updatedAt: now })
       console.log(`[sync] standings: ${standings.length} rows`)
     } catch (err) {
       console.error('[sync] standings failed:', err)
-    }
-
-    await new Promise((r) => setTimeout(r, 6000))
-
-    try {
-      // 3. Bracket (knockout rounds)
-      const stages = 'ROUND_OF_32,ROUND_OF_16,QUARTER_FINALS,SEMI_FINALS,THIRD_PLACE,FINAL'
-      const bracketData = await apiFetch<{ matches: ApiMatch[] }>(
-        `/competitions/WC/matches?season=2026&stage=${stages}`, token,
-      )
-      const bracket = bracketData.matches.map((m, i) => ({
-        id:       String(m.id),
-        round:    mapPhase(m.stage),
-        slot:     i + 1,
-        homeTeam: m.homeTeam?.id ? mapTeam(m.homeTeam) : null,
-        awayTeam: m.awayTeam?.id ? mapTeam(m.awayTeam) : null,
-        score:    { home: m.score.fullTime.home, away: m.score.fullTime.away },
-        status:   mapStatus(m.status),
-        date:     m.utcDate ?? null,
-        stadium:  m.venue?.name || MATCH_VENUES[String(m.id)]?.stadium || '',
-        city:     m.venue?.city || MATCH_VENUES[String(m.id)]?.city || '',
-      }))
-      await db.doc('cache/bracket').set({ data: bracket, updatedAt: now })
-      console.log(`[sync] bracket: ${bracket.length} matches`)
-    } catch (err) {
-      console.error('[sync] bracket failed:', err)
     }
 
     // 4. Push notifications — jogos que começam em 30 min

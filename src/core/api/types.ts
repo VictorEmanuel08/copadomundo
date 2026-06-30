@@ -48,17 +48,22 @@ export interface Standing {
   points: number
 }
 
+export type MatchWinner = 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null
+
 export interface BracketMatch {
   id: string
   round: MatchPhase
   slot: number        // posição no bracket (1-based)
   homeTeam: Team | null
   awayTeam: Team | null
-  score: Score
+  score: Score        // placar de exibição (tempo normal + prorrogação)
   status: MatchStatus
   date: string | null
   stadium?: string | null
   city?: string | null
+  winner?: MatchWinner       // vencedor oficial (inclui decisão por pênaltis)
+  penalties?: Score | null   // placar dos pênaltis, quando houve disputa
+  duration?: string | null   // REGULAR | EXTRA_TIME | PENALTY_SHOOTOUT
 }
 
 export interface FootballAPIAdapter {

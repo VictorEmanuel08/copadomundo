@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { Share2, RotateCcw, CheckCircle2, ChevronRight, LayoutGrid, GitFork } from 'lucide-react'
+import { Share2, RotateCcw, CheckCircle2, ChevronRight, LayoutGrid, GitFork, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GroupSelector } from '../components/GroupSelector'
 import { BracketView } from '../components/BracketView'
 import { ALL_GROUPS, type GroupLetter, type SimState } from '../world-cup-bracket/types'
 import { generateBracket, countCompleteGroups, isGroupComplete } from '../world-cup-bracket/bracket'
 import { serializeState, deserializeState, emptyState, buildShareURL } from '../world-cup-bracket/serializer'
+import { deriveScenarioState } from '../world-cup-bracket/scenario'
+import { useStandings } from '@/features/standings/hooks/useStandings'
+import { useBracket } from '@/features/bracket/hooks/useBracket'
 import { cn } from '@/lib/utils'
 
 type Step = 'groups' | 'bracket'
@@ -65,14 +68,38 @@ function useSimState() {
     setState(emptyState())
   }
 
-  return { state, setGroup, setBracketWinner, reset }
+  // Carrega um estado completo (ex.: o cenário atual derivado dos dados reais).
+  function loadState(next: SimState) {
+    setState(next)
+  }
+
+  return { state, setGroup, setBracketWinner, reset, loadState }
 }
 
 export default function SimulatorPage() {
-  const { state, setGroup, setBracketWinner, reset } = useSimState()
+  const { state, setGroup, setBracketWinner, reset, loadState } = useSimState()
+  const { data: standings } = useStandings()
+  const { data: bracketMatches } = useBracket()
   const [tab, setTab] = useState<Step>('groups')
   const [copied, setCopied] = useState(false)
   const [thirdLimitWarning, setThirdLimitWarning] = useState(false)
+
+  // O "cenário atual" só faz sentido quando já há jogos disputados.
+  const scenarioReady = !!standings?.some(s => s.played > 0)
+
+  // Início do zero (estado vazio) — comportamento clássico do simulador.
+  function startFromScratch() {
+    reset()
+    setTab('groups')
+  }
+
+  // Início a partir do cenário REAL: grupos, terceiros e mata-mata já decididos,
+  // derivados da MESMA fonte (useStandings + useBracket) via scenario.ts.
+  function startFromCurrent() {
+    if (!standings) return
+    loadState(deriveScenarioState(standings, bracketMatches))
+    setTab('bracket')
+  }
 
   const completedGroups = useMemo(() => countCompleteGroups(state.groups), [state.groups])
   const allGroupsDone   = completedGroups === ALL_GROUPS.length
@@ -130,11 +157,12 @@ export default function SimulatorPage() {
             <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Simulador de Chaveamento</p>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">Copa do Mundo 2026</h1>
             <p className="mt-1 text-xs text-muted-foreground max-w-md">
-              Classifique as seleções nos grupos e dispute o chaveamento das eliminatórias de forma dinâmica.
+              Comece do zero ou carregue o <span className="font-semibold text-foreground">cenário atual</span> da Copa
+              (grupos e mata-mata reais) e ajuste os confrontos como quiser.
             </p>
           </div>
           
-          <div className="flex gap-2 shrink-0">
+          <div className="flex flex-wrap gap-2 shrink-0">
             {bracketReady && (
               <Button
                 size="sm"
@@ -149,13 +177,23 @@ export default function SimulatorPage() {
             )}
             <Button
               size="sm"
-              onClick={reset}
+              onClick={startFromCurrent}
+              disabled={!scenarioReady}
+              className="rounded-xl text-xs font-bold border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40"
+              title="Carregar o cenário real da Copa (grupos e mata-mata atuais)"
+            >
+              <Sparkles size={13} className="mr-1.5" />
+              Cenário atual
+            </Button>
+            <Button
+              size="sm"
+              onClick={startFromScratch}
               variant="outline"
               className="border-border hover:bg-muted text-muted-foreground rounded-xl"
-              title="Resetar toda a simulação"
+              title="Começar a simulação do zero"
             >
               <RotateCcw size={13} className="mr-1.5" />
-              Limpar Tudo
+              Do zero
             </Button>
           </div>
         </div>
