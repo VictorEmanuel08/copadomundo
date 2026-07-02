@@ -584,7 +584,7 @@ export function ParticipantModal({
                         {/* Real score */}
                         <div className="flex flex-1 flex-col items-center gap-0.5">
                           <span className="text-[9px] font-black tracking-wider text-muted-foreground/60 uppercase">
-                            {finished ? "Placar Real" : "Aguardando"}
+                            {finished ? "Placar (90')" : "Aguardando"}
                           </span>
                           <span className="text-base font-black text-muted-foreground tabular-nums">
                             {finished

@@ -117,12 +117,15 @@ function PublicMatchCard({
           {/* Score inputs / result */}
           <div className="flex items-center gap-1.5 shrink-0">
             {(isDone || isLive) && match.score.home !== null ? (
-              <span className={cn(
-                'text-sm font-black tabular-nums px-2 py-1 rounded-lg border',
-                isLive ? 'text-red-400 bg-red-500/10 border-red-500/30' : 'text-foreground bg-muted/40 border-border/30',
-              )}>
-                {match.score.home} – {match.score.away}
-              </span>
+              <div className="flex flex-col items-center gap-0.5">
+                <span className={cn(
+                  'text-sm font-black tabular-nums px-2 py-1 rounded-lg border',
+                  isLive ? 'text-red-400 bg-red-500/10 border-red-500/30' : 'text-foreground bg-muted/40 border-border/30',
+                )}>
+                  {match.score.home} – {match.score.away}
+                </span>
+                <span className="text-[8px] font-bold text-muted-foreground/40 tracking-wide">90 MIN</span>
+              </div>
             ) : locked ? (
               <span className="text-xs text-muted-foreground px-2 font-bold">
                 {stats.myPrediction ? `${stats.myPrediction.homeScore}×${stats.myPrediction.awayScore}` : '–'}

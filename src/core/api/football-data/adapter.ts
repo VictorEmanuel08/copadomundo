@@ -156,6 +156,15 @@ export const footballDataAdapter: FootballAPIAdapter = {
     const data = await apiFetch<{ matches: ApiMatch[] }>('/competitions/WC/matches?season=2026')
     return data.matches.map((m) => {
       const group = mapGroup(m.group)
+      // Bolão: usa EXCLUSIVAMENTE o placar do tempo regulamentar (90 minutos).
+      // Prorrogação e pênaltis NÃO são considerados.
+      // - Fase de grupos: fullTime já é o placar dos 90' (não há ET/pênaltis).
+      // - Mata-matas: a API preenche `regularTime` com o placar exato dos 90';
+      //   `fullTime` nesses casos inclui ET + pênaltis e NÃO deve ser usado.
+      const rt = m.score.regularTime
+      const poolScore = (rt?.home !== null && rt?.home !== undefined)
+        ? rt
+        : m.score.fullTime
       return {
         id:       String(m.id),
         homeTeam: mapTeamRaw(m.homeTeam, group ?? ''),
@@ -167,12 +176,13 @@ export const footballDataAdapter: FootballAPIAdapter = {
         group,
         status:   mapStatus(m.status),
         score: {
-          home: m.score.fullTime.home,
-          away: m.score.fullTime.away,
+          home: poolScore.home,
+          away: poolScore.away,
         },
       }
     })
   },
+
 
   async getStandings(): Promise<Standing[]> {
     const data = await apiFetch<{ standings: ApiStandingSection[] }>(
