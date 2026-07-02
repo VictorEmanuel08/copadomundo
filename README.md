@@ -214,6 +214,16 @@ Cada usuário pode criar ou entrar em ligas privadas com um **código de convite
 - **Filtros de palpites** — dentro do perfil de cada participante, os palpites são organizados por Próximos (ao vivo primeiro) e Finalizados (mais recentes primeiro)
 - **Exportar ranking** — gera imagem PNG para compartilhar
 
+### ⏱ Regra de apuração — Tempo Regulamentar (90 minutos)
+
+> **O bolão considera exclusivamente o placar dos 90 minutos de jogo (tempo regulamentar).**
+>
+> Prorrogação e disputa por pênaltis **não** influenciam o resultado do bolão.
+>
+> **Exemplo:** Numa partida que terminou `1×1` nos 90', foi a prorrogação e o time A venceu nos pênaltis por `4×3` — o placar de referência do bolão é **1×1**. Quem apostou `1×1` acerta o placar exato.
+
+Essa regra vale tanto para os palpites de fase de grupos quanto para os mata-matas.
+
 ### Sistema de pontuação (configurável pelo admin da liga)
 
 | Acerto                | Padrão |
@@ -315,6 +325,22 @@ Para evitar erros de CORS ao chamar a API em desenvolvimento, o Vite redireciona
 ## 🌐 Deploy
 
 **Produção:** [copadomundo-2026.vercel.app](https://copadomundo-2026.vercel.app)
+
+---
+
+## 📋 Changelog
+
+### 2026-07-02 — Bolão: placar de referência corrigido para tempo regulamentar
+
+**Problema:** o sistema usava o campo `fullTime` da football-data.org como referência para apurar os palpites do bolão. Em jogos que vão para prorrogação ou pênaltis, a API soma todos os gols (90' + ET + pênaltis) no `fullTime`, resultando em placares incorretos (ex: `5×4` em vez de `1×1` nos 90').
+
+**Correção aplicada:**
+
+- **Cloud Function** (`functions/src/index.ts` — `transformMatch`): o campo `score` gravado em `cache/matches` agora usa `regularTime` (placar dos 90') quando disponível, com fallback para `fullTime` na fase de grupos (onde não há ET e os dois valores são iguais).
+- **Adapter front-end** (`src/core/api/football-data/adapter.ts` — `getMatches`): mesma lógica aplicada para o caminho direto à API (usado em desenvolvimento).
+- **UI** (`LeaguePage.tsx`, `PoolPage.tsx`, `ParticipantModal.tsx`): placares exibidos passam a mostrar o label **"90 MIN"**, e cards de mata-mata abertos exibem o aviso **"⏱ Apenas tempo regulamentar (90')"**. O label "Placar Real" no modal de participante foi renomeado para **"Placar (90')"**.
+
+**Impacto nos palpites existentes:** nenhum — os palpites ficam intactos no Firestore. Como os pontos são calculados em tempo real no front-end, assim que a Cloud Function sincronizar (a cada 1 minuto), os rankings são recalculados automaticamente com os valores corretos.
 
 ---
 
