@@ -278,17 +278,20 @@ function PredictionRow({
 
           <div className="flex shrink-0 items-center gap-1">
             {(isDone && hasResult) || (isLive && hasResult) ? (
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2 py-1 text-sm font-black tabular-nums",
-                  isLive
-                    ? "border-red-500/40 bg-red-500/10 text-red-400"
-                    : "border-border/30 bg-muted/40"
-                )}
-              >
-                {match.score.home}
-                <span className="font-normal text-muted-foreground/40">–</span>
-                {match.score.away}
+              <div className="flex flex-col items-center gap-0.5">
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg border px-2 py-1 text-sm font-black tabular-nums",
+                    isLive
+                      ? "border-red-500/40 bg-red-500/10 text-red-400"
+                      : "border-border/30 bg-muted/40"
+                  )}
+                >
+                  {match.score.home}
+                  <span className="font-normal text-muted-foreground/40">–</span>
+                  {match.score.away}
+                </div>
+                <span className="text-[8px] font-bold text-muted-foreground/40 tracking-wide">90 MIN</span>
               </div>
             ) : (
               <>
@@ -327,6 +330,12 @@ function PredictionRow({
             <strong className="text-foreground">
               {existing.homeScore}×{existing.awayScore}
             </strong>
+          </p>
+        )}
+
+        {!isDone && !locked && isKnockout && (
+          <p className="text-center text-[9px] text-amber-500/70 font-semibold">
+            ⏱ Apenas tempo regulamentar (90')
           </p>
         )}
 
